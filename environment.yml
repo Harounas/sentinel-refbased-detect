@@ -1,0 +1,15 @@
+name: sentinel-detect
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python>=3.9
+  - pip
+  - kraken2>=2.1
+  - bwa
+  - samtools>=1.15
+  - ivar=1.3.1        # same version as the Terra docker andersenlabapps/ivar:1.3.1
+  - diamond=2.1       # optional: only needed with --diamond-db
+  - zstd              # optional: only for a .tar.zst Kraken2 database
+  - pip:
+      - -e .

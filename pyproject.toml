@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sentinel-refbased-detect"
+version = "0.15.0"
+description = "Local port of the Terra sentinel_refbased_detect workflow (V15): Kraken2-guided, reference-based detection of priority pathogens from FASTQ."
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [{ name = "Harouna Soumare" }]
+keywords = ["metagenomics", "kraken2", "pathogen detection", "NGS", "surveillance"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Operating System :: POSIX",
+]
+# Pure standard library on the Python side. The heavy lifting is done by
+# kraken2, bwa, samtools, ivar and (optionally) diamond; see environment.yml.
+dependencies = []
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+
+[project.scripts]
+sentinel-detect = "sentinel_refbased_detect.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/Harounas/sentinel-refbased-detect"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
