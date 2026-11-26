@@ -159,7 +159,9 @@ def align_and_consensus(sample_id, r1, r2, reference_fasta, out_dir, params,
               "-t", str(params.consensus_min_freq), "-m", str(params.consensus_min_depth),
               "-n", params.consensus_ambig_char]
         with open(wd / "ivar.log", "a") as lf:
-            return pipeline([mp, iv], cwd=wd, stdout=lf, stderr=lf, check=False)
+            rc = pipeline([mp, iv], cwd=wd, stdout=lf, stderr=lf, check=False)
+        # Report a signal the way bash does (segfault -11 -> 139), as on Terra.
+        return 128 - rc if rc < 0 else rc
 
     status = "ok"
     rc = run_consensus(0, "ivar_out")
