@@ -7,7 +7,7 @@ name = "sentinel-refbased-detect"
 version = "0.15.0"
 description = "Local port of the Terra sentinel_refbased_detect workflow (V15): Kraken2-guided, reference-based detection of priority pathogens from FASTQ."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 authors = [{ name = "Harouna Soumare" }]
 keywords = ["metagenomics", "kraken2", "pathogen detection", "NGS", "surveillance"]
 classifiers = [
