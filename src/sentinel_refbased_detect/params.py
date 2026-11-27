@@ -31,6 +31,9 @@ class Params:
     min_block_bp: int = _p(200, "Smallest covered block that makes its region count toward the fallback rule.")
     min_qualifying_regions: int = _p(2, "Regions that must each hold a block >= min_block_bp for the fallback rule.")
     min_mapq: int = _p(20, "Mapping-quality floor for unique reads.")
+    min_specific_reads: int = _p(2, "Unique reads that, sitting at separate loci, detect a virus on their own. 0 switches this third rule off and leaves the coverage rules alone.")
+    min_specific_positions: int = _p(2, "Separate loci those reads must occupy. Reads that overlap are one locus however many there are, so a repeat or a conserved stretch cannot clear this.")
+    best_ref_tie_tolerance: float = _p(0.05, "How close in covered bases a second reference must be to count as tied with the winner. Ties are reported, not broken on a hair's difference.")
 
     # --- consensus ----------------------------------------------------------
     consensus_min_q: int = _p(20, "ivar consensus -q.", "consensus")

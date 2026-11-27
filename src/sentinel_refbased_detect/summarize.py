@@ -20,8 +20,10 @@ SUMMARY_COLS = ["sample_id", "taxid", "report_taxid", "report_name", "report_ran
                 "duplicate_fraction", "breadth_of_coverage",
                 "paired_read_concordance", "longest_covered_block_bp",
                 "n_covered_blocks", "n_qualifying_regions",
-                "detection", "detection_basis",
-                "consensus_status", "n_references_compared"]
+                "n_distinct_start_positions", "n_separate_loci",
+                "detection", "detection_rule", "detection_basis",
+                "consensus_status", "n_references_compared",
+                "n_references_tied", "tied_references"]
 
 REGION_COLS = ["sample_id", "taxid", "virus_code", "virus_importance",
                "best_reference", "region",
@@ -32,23 +34,42 @@ REGION_COLS = ["sample_id", "taxid", "virus_code", "virus_importance",
 
 
 def detection_rule(region_rows, params):
-    """Return (detected, reason, n_qualifying_regions).
+    """Return (detected, reason, n_qualifying_regions, rule).
 
-    detected if one region holds an unbroken run >= min_region_bp at min_depth,
-    or if >= min_qualifying_regions regions each hold a block >= min_block_bp.
+    Three ways in, strongest first, and the rule that fired is reported so a
+    weak pass is never mistaken for a strong one:
+
+      contiguous     one unbroken run of >= min_region_bp at min_depth. This is
+                     sequence you could call.
+      multi-region   >= min_qualifying_regions regions each holding a block of
+                     >= min_block_bp. Only reachable for a segmented virus.
+      two-position   >= min_specific_reads unique reads at >= min_specific_positions
+                     separate loci. Deliberately the weakest: it asks only for
+                     evidence that is not one piece of genome read twice. Reads
+                     that overlap are one locus however many of them there are,
+                     which is what stops a repeat or a conserved stretch from
+                     clearing it.
     """
     n_qual = sum(1 for r in region_rows if r["n_blocks"] >= 1)
     best_block = max((r["longest_block_bp"] for r in region_rows), default=0)
     best_region = max((r["covered_bp_min_depth"] for r in region_rows), default=0)
+    n_reads = sum(r["unique_reads"] for r in region_rows)
+    n_loci = sum(r.get("n_loci", 0) for r in region_rows)
+
     if best_block >= params.min_region_bp:
         return True, (f"contiguous {best_block} bp >= {params.min_region_bp} bp "
-                      f"at {params.min_depth}x"), n_qual
+                      f"at {params.min_depth}x"), n_qual, "contiguous"
     if n_qual >= params.min_qualifying_regions:
         return True, (f"{n_qual} regions each with a block >= "
-                      f"{params.min_block_bp} bp at {params.min_depth}x"), n_qual
+                      f"{params.min_block_bp} bp at {params.min_depth}x"), n_qual, "multi-region"
+    if (params.min_specific_reads and n_reads >= params.min_specific_reads
+            and n_loci >= params.min_specific_positions):
+        return True, (f"{n_reads} unique reads at {n_loci} separate position(s), "
+                      f"longest contiguous {best_block} bp"), n_qual, "two-position"
     return False, (f"longest contiguous {best_block} bp ({best_region} bp covered "
                    f"in all), {n_qual} region(s) with a block >= "
-                   f"{params.min_block_bp} bp"), n_qual
+                   f"{params.min_block_bp} bp, {n_reads} unique read(s) at "
+                   f"{n_loci} position(s)"), n_qual, "none"
 
 
 def summarize_sample(sample_id, align_dirs, candidates_tsv, out_dir, params):
@@ -90,13 +111,15 @@ def summarize_sample(sample_id, align_dirs, candidates_tsv, out_dir, params):
             with open(p) as fh:
                 for line in fh:
                     f = line.rstrip("\n").split("\t")
-                    if len(f) != 8:
+                    if len(f) < 8:
                         continue
                     by_ref.setdefault(f[0], []).append({
                         "region": f[1], "region_length": int(f[2]),
                         "unique_reads": int(f[3]), "mean_mapq": float(f[4]),
                         "covered_bp_min_depth": int(f[5]),
-                        "longest_block_bp": int(f[6]), "n_blocks": int(f[7])})
+                        "longest_block_bp": int(f[6]), "n_blocks": int(f[7]),
+                        "n_distinct_starts": int(f[8]) if len(f) > 8 else 0,
+                        "n_loci": int(f[9]) if len(f) > 9 else 0})
 
     meta = {}
     with open(candidates_tsv) as fh:
@@ -110,7 +133,7 @@ def summarize_sample(sample_id, align_dirs, candidates_tsv, out_dir, params):
             continue
         total_len = sum(r["region_length"] for r in region_rows)
         total_cov = sum(r["covered_bp_min_depth"] for r in region_rows)
-        detected, reason, n_qual = detection_rule(region_rows, params)
+        detected, reason, n_qual, rule = detection_rule(region_rows, params)
         cand = meta.get((st["taxid"], st["ref_index"]), {})
         records.append({
             "ref_tag": tag, "taxid": st["taxid"], "virus_code": st["virus_code"],
@@ -119,7 +142,12 @@ def summarize_sample(sample_id, align_dirs, candidates_tsv, out_dir, params):
             "n_mapped": st["n_mapped"], "n_duplicate": st["n_duplicate"],
             "breadth": (total_cov / total_len) if total_len else 0.0,
             "concordance": (st["n_proper"] / st["n_mapped"]) if st["n_mapped"] else 0.0,
-            "detected": detected, "reason": reason, "total_cov": total_cov,
+            "detected": detected, "reason": reason, "rule": rule,
+            "total_cov": total_cov,
+            "n_distinct_starts": sum(r.get("n_distinct_starts", 0) for r in region_rows),
+            "n_loci": sum(r.get("n_loci", 0) for r in region_rows),
+            "mean_mapq": round(sum(r["mean_mapq"] * r["unique_reads"] for r in region_rows)
+                               / max(sum(r["unique_reads"] for r in region_rows), 1), 2),
             "n_blocks": sum(r["n_blocks"] for r in region_rows),
             "n_qual_regions": n_qual,
             "consensus_status": st.get("consensus_status", ""),
@@ -135,12 +163,33 @@ def summarize_sample(sample_id, align_dirs, candidates_tsv, out_dir, params):
             "levels": {c: cand.get(c, "") for c in LEVEL_COLS},
         })
 
-    # Best reference per virus: most bases covered at min_depth, then most reads.
-    best = {}
+    # Best reference per virus. Covered bases first, because breadth is what
+    # the detection rule turns on, then the number of separate loci the reads
+    # occupy, which is independent evidence rather than depth at one spot, then
+    # read count and mapping quality.
+    def rank(rec):
+        return (rec["total_cov"], rec["n_loci"], rec["total_unique"], rec["mean_mapq"])
+
+    by_taxid = {}
     for rec in records:
-        key = (rec["total_cov"], rec["total_unique"])
-        if rec["taxid"] not in best or key > best[rec["taxid"]][0]:
-            best[rec["taxid"]] = (key, rec)
+        by_taxid.setdefault(rec["taxid"], []).append(rec)
+
+    best, ties = {}, {}
+    for taxid, recs in by_taxid.items():
+        # Sorted on the metrics and then on the reference name, so the same
+        # data makes the same choice rather than depending on the order the
+        # shards happened to finish in.
+        recs = sorted(recs, key=lambda r: (rank(r), r["ref_tag"]), reverse=True)
+        winner = recs[0]
+        # References not meaningfully worse than the winner. Choosing between
+        # them on a hair's difference in covered bases is a coin toss reported
+        # as a result, so the tie is recorded instead: the consensus comes from
+        # one of them and the rest are named for whoever reads the table.
+        tol = params.best_ref_tie_tolerance
+        best[taxid] = (rank(winner), winner)
+        ties[taxid] = [r for r in recs[1:]
+                       if r["total_cov"] >= winner["total_cov"] * (1 - tol)
+                       and r["n_loci"] >= winner["n_loci"]]
 
     summary_rows, region_out, block_records = [], [], []
     for taxid, (_, rec) in sorted(best.items()):
@@ -167,9 +216,14 @@ def summarize_sample(sample_id, align_dirs, candidates_tsv, out_dir, params):
             "longest_covered_block_bp": max((r["longest_block_bp"] for r in rows), default=0),
             "n_covered_blocks": sum(r["n_blocks"] for r in rows),
             "n_qualifying_regions": rec["n_qual_regions"],
-            "detection": detection, "detection_basis": rec["reason"],
+            "n_distinct_start_positions": rec["n_distinct_starts"],
+            "n_separate_loci": rec["n_loci"],
+            "detection": detection, "detection_rule": rec["rule"],
+            "detection_basis": rec["reason"],
             "consensus_status": rec["consensus_status"],
             "n_references_compared": sum(1 for r in records if r["taxid"] == taxid),
+            "n_references_tied": len(ties.get(taxid, [])),
+            "tied_references": ";".join(r["ref_tag"] for r in ties.get(taxid, [])[:5]),
         })
         for r in rows:
             region_out.append({

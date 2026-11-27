@@ -132,8 +132,35 @@ classified one at a time. Alignments run `--jobs` at a time with `--threads` eac
 
 A virus is **detected** when the best of its candidate references meets either condition:
 
-* one region (segment or genome) has an unbroken run of at least `min_region_bp` (1000) bases at depth `min_depth` (2) or more, using unique reads (MAPQ ≥ 20, duplicates removed); or
-* at least `min_qualifying_regions` (2) separate regions each have a block of at least `min_block_bp` (200) such bases.
+* **contiguous** — one region (segment or genome) has an unbroken run of at least `min_region_bp` (1000) bases at depth `min_depth` (2) or more, using unique reads (MAPQ ≥ 20, duplicates removed); or
+* **multi-region** — at least `min_qualifying_regions` (2) separate regions each have a block of at least `min_block_bp` (200) such bases; or
+* **two-position** — at least `min_specific_reads` (2) unique reads sit at `min_specific_positions` (2) or more **separate loci**.
+
+The rule that fired is recorded in `detection_rule`, so a weak pass is never mistaken for a
+strong one. The third rule is the weakest by design: it asks only for evidence that is not
+one piece of genome read twice. Reads whose alignments overlap are **one locus** however
+many of them there are, which is what stops a repeat, a conserved stretch or a PCR stack
+from clearing it — ten reads piled on one spot do not detect, two reads at two loci do.
+Set `--min-specific-reads 0` to switch it off and keep the coverage rules alone.
+
+Because it is a low bar, it makes the evidence review and the genus rescue load-bearing
+rather than optional: they are what separate two real reads from two reads of a relative.
+
+### Picking the best reference
+
+Each virus is aligned to up to 20 candidate references and one is chosen, on:
+
+1. **covered bases** at `min_depth` — breadth is what the detection rule turns on;
+2. **separate loci** the reads occupy — independent evidence, not depth at one spot;
+3. **unique reads** mapped;
+4. **mean MAPQ**.
+
+Where a second reference is within `--best-ref-tie-tolerance` (5%) on covered bases and
+holds as many loci, the choice between them is a coin toss, so it is not made silently:
+`n_references_tied` and `tied_references` record it. Ranking falls back to the reference
+name last, so the same data makes the same choice rather than depending on which shard
+finished first. A tie here is between strains of one virus; a contest between *species* is
+what the genus rescue settles.
 
 The final call (`final_call`) then applies these checks in order:
 

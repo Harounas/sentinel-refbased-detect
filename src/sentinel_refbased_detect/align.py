@@ -8,6 +8,7 @@ Writes into its own directory:
 """
 
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -62,16 +63,51 @@ def coverage_blocks(bam, min_depth, min_block_bp):
     return {r: (covered[r], longest.get(r, 0), nblocks.get(r, 0)) for r in covered}
 
 
-def mapq_by_ref(bam):
-    n, s = {}, {}
+CIGAR_REF = re.compile(r"(\d+)([MIDNSHP=X])")
+
+
+def ref_span(cigar):
+    """Bases of the reference a read covers, from its CIGAR."""
+    return sum(int(n) for n, op in CIGAR_REF.findall(cigar) if op in "MDN=X")
+
+
+def reads_by_ref(bam):
+    """Per reference: reads, mean MAPQ, distinct starts, and separate loci.
+
+    The last of these is what distinguishes evidence from repetition. Two reads
+    that overlap are one piece of the genome seen twice, however many reads
+    pile up there; two reads at unconnected loci are two independent
+    observations. Intervals are merged where they touch, so a stack counts once
+    and the count is of places, not of reads.
+    """
+    per_ref = {}
     proc = subprocess.Popen(["samtools", "view", str(bam)], stdout=subprocess.PIPE, text=True)
     for line in proc.stdout:
-        f = line.split("\t", 5)
-        n[f[2]] = n.get(f[2], 0) + 1
-        s[f[2]] = s.get(f[2], 0) + int(f[4])
+        f = line.split("\t", 10)
+        if len(f) < 6:
+            continue
+        ref, pos, mapq, cigar = f[2], int(f[3]), int(f[4]), f[5]
+        e = per_ref.setdefault(ref, {"n": 0, "mapq": 0, "starts": set(), "iv": []})
+        e["n"] += 1
+        e["mapq"] += mapq
+        e["starts"].add(pos)
+        e["iv"].append((pos, pos + max(ref_span(cigar), 1) - 1))
     if proc.wait() != 0:
         raise RuntimeError("samtools view failed on %s" % bam)
-    return {r: (n[r], float("%.2f" % (s[r] / n[r]))) for r in n}
+
+    out = {}
+    for ref, e in per_ref.items():
+        merged = 0
+        end = -1
+        for start, stop in sorted(e["iv"]):
+            if start > end:          # no overlap with the locus being built
+                merged += 1
+                end = stop
+            elif stop > end:
+                end = stop
+        out[ref] = (e["n"], float("%.2f" % (e["mapq"] / e["n"])),
+                    len(e["starts"]), merged)
+    return out
 
 
 def longest_called_run(fasta_path):
@@ -138,7 +174,7 @@ def align_and_consensus(sample_id, r1, r2, reference_fasta, out_dir, params,
             f = line.split("\t")
             ref_lengths.append((f[0], int(f[1])))
 
-    mq = mapq_by_ref(wd / "unique.bam")
+    mq = reads_by_ref(wd / "unique.bam")
     blocks = coverage_blocks(wd / "unique.bam", params.min_depth, params.min_block_bp)
 
     def count(*flags):
@@ -201,9 +237,10 @@ def align_and_consensus(sample_id, r1, r2, reference_fasta, out_dir, params,
 
     with open(wd / "region_stats.tsv", "w") as out:
         for r, length in ref_lengths:
-            ur, mean_mq = mq.get(r, (0, 0.0))
+            ur, mean_mq, n_starts, n_loci = mq.get(r, (0, 0.0, 0, 0))
             cov, lng, nb = blocks.get(r, (0, 0, 0))
-            out.write("%s\t%s\t%d\t%d\t%.2f\t%d\t%d\t%d\n" % (tag, r, length, ur, mean_mq, cov, lng, nb))
+            out.write("%s\t%s\t%d\t%d\t%.2f\t%d\t%d\t%d\t%d\t%d\n"
+                      % (tag, r, length, ur, mean_mq, cov, lng, nb, n_starts, n_loci))
 
     taxid, code, idx = parse_tag(tag)
     with open(wd / "aln_stats.tsv", "w") as out:

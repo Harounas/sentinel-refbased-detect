@@ -10,26 +10,42 @@ from sentinel_refbased_detect.summarize import SUMMARY_COLS, detection_rule
 P = Params()
 
 
-def region(longest, n_blocks, covered=None):
+def region(longest, n_blocks, covered=None, unique_reads=0, n_loci=0):
     return {"longest_block_bp": longest, "n_blocks": n_blocks,
-            "covered_bp_min_depth": covered if covered is not None else longest}
+            "covered_bp_min_depth": covered if covered is not None else longest,
+            "unique_reads": unique_reads, "n_loci": n_loci}
 
 
 def test_detection_rule_contiguous():
-    det, why, _ = detection_rule([region(1000, 1)], P)
-    assert det and why.startswith("contiguous 1000 bp")
+    det, why, _, rule = detection_rule([region(1000, 1)], P)
+    assert det and rule == "contiguous" and why.startswith("contiguous 1000 bp")
 
 
 def test_detection_rule_two_regions():
-    det, why, n = detection_rule([region(250, 1), region(300, 1), region(0, 0)], P)
-    assert det and n == 2 and "2 regions" in why
+    det, why, n, rule = detection_rule(
+        [region(250, 1), region(300, 1), region(0, 0)], P)
+    assert det and n == 2 and rule == "multi-region" and "2 regions" in why
+
+
+def test_two_reads_at_separate_loci_detect():
+    """The weakest rule: evidence that is not one piece of genome read twice."""
+    det, _, _, rule = detection_rule([region(120, 0, unique_reads=2, n_loci=2)], P)
+    assert det and rule == "two-position"
+
+
+def test_reads_piled_on_one_locus_do_not_detect():
+    """Ten reads stacked on one spot are one observation, not ten."""
+    det, why, _, rule = detection_rule(
+        [region(140, 0, covered=140, unique_reads=10, n_loci=1)], P)
+    assert not det and rule == "none"
+    assert "10 unique read(s) at 1 position(s)" in why
 
 
 def test_detection_rule_unsegmented_short():
-    det, why, _ = detection_rule([region(999, 3, covered=5000)], P)
-    assert not det
-    assert why == ("longest contiguous 999 bp (5000 bp covered in all), "
-                   "1 region(s) with a block >= 200 bp")
+    det, why, _, rule = detection_rule([region(999, 3, covered=5000)], P)
+    assert not det and rule == "none"
+    assert why.startswith("longest contiguous 999 bp (5000 bp covered in all), "
+                          "1 region(s) with a block >= 200 bp")
 
 
 def test_parse_tag_with_underscored_code():
@@ -116,3 +132,43 @@ def test_final_calls_control_background(tmp_path):
     calls = {r["sample_id"]: r["final_call"] for r in csv.DictReader(open(final), delimiter="\t")}
     assert calls == {"NTC": "control sample", "A": "suspect: control background",
                      "B": "detected, unconfirmed", "C": "not detected"}
+
+
+def test_ref_span_counts_reference_bases_only():
+    from sentinel_refbased_detect.align import ref_span
+    assert ref_span("150M") == 150
+    assert ref_span("10S140M") == 140          # soft-clipped bases are not on the reference
+    assert ref_span("100M5I45M") == 145        # an insertion consumes no reference
+    assert ref_span("100M5D45M") == 150        # a deletion does
+
+
+def test_overlapping_reads_count_as_one_locus(tmp_path):
+    """What separates evidence from repetition, on a real BAM."""
+    import shutil
+    import subprocess
+    if not (shutil.which("samtools")):
+        import pytest
+        pytest.skip("samtools not installed")
+    from sentinel_refbased_detect.align import reads_by_ref
+
+    sam = tmp_path / "x.sam"
+    reads = [
+        # Three reads piled on one spot: one locus.
+        (100, "r1"), (120, "r2"), (140, "r3"),
+        # Two more, far away and overlapping each other: a second locus.
+        (5000, "r4"), (5080, "r5"),
+        # One alone: a third.
+        (9000, "r6"),
+    ]
+    with open(sam, "w") as fh:
+        fh.write("@HD\tVN:1.6\tSO:coordinate\n@SQ\tSN:ref\tLN:20000\n")
+        for pos, name in reads:
+            fh.write("%s\t0\tref\t%d\t60\t150M\t*\t0\t0\t%s\t%s\n"
+                     % (name, pos, "A" * 150, "I" * 150))
+    bam = tmp_path / "x.bam"
+    subprocess.run(["samtools", "view", "-b", "-o", str(bam), str(sam)], check=True)
+
+    n, mapq, starts, loci = reads_by_ref(bam)["ref"]
+    assert n == 6 and starts == 6               # six reads, six distinct starts
+    assert loci == 3                            # but only three separate places
+    assert mapq == 60.0
