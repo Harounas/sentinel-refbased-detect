@@ -44,7 +44,10 @@ def detection_rule(region_rows, params):
       multi-region   >= min_qualifying_regions regions each holding a block of
                      >= min_block_bp. Only reachable for a segmented virus.
       two-position   >= min_specific_reads unique reads at >= min_specific_positions
-                     separate loci. Deliberately the weakest: it asks only for
+                     separate loci. Off by default, because the first two rules
+                     are the Terra workflow's and turning this one on changes
+                     what that workflow calls; --min-specific-reads 2 adds it.
+                     Deliberately the weakest: it asks only for
                      evidence that is not one piece of genome read twice. Reads
                      that overlap are one locus however many of them there are,
                      which is what stops a repeat or a conserved stretch from

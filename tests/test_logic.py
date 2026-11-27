@@ -8,6 +8,9 @@ from sentinel_refbased_detect.params import Params
 from sentinel_refbased_detect.summarize import SUMMARY_COLS, detection_rule
 
 P = Params()
+# The third rule is off by default so the package keeps reproducing the Terra
+# run; the tests for it opt in, as a user would.
+P2 = Params(min_specific_reads=2, min_specific_positions=2)
 
 
 def region(longest, n_blocks, covered=None, unique_reads=0, n_loci=0):
@@ -29,14 +32,20 @@ def test_detection_rule_two_regions():
 
 def test_two_reads_at_separate_loci_detect():
     """The weakest rule: evidence that is not one piece of genome read twice."""
-    det, _, _, rule = detection_rule([region(120, 0, unique_reads=2, n_loci=2)], P)
+    det, _, _, rule = detection_rule([region(120, 0, unique_reads=2, n_loci=2)], P2)
     assert det and rule == "two-position"
+
+
+def test_two_position_rule_is_off_by_default():
+    """The Terra rules stand on their own unless the third one is asked for."""
+    det, _, _, rule = detection_rule([region(120, 0, unique_reads=2, n_loci=2)], P)
+    assert not det and rule == "none"
 
 
 def test_reads_piled_on_one_locus_do_not_detect():
     """Ten reads stacked on one spot are one observation, not ten."""
     det, why, _, rule = detection_rule(
-        [region(140, 0, covered=140, unique_reads=10, n_loci=1)], P)
+        [region(140, 0, covered=140, unique_reads=10, n_loci=1)], P2)
     assert not det and rule == "none"
     assert "10 unique read(s) at 1 position(s)" in why
 

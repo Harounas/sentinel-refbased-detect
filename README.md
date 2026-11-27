@@ -19,7 +19,8 @@ PATH 1  is this virus present?
                                                                          │
             best reference: covered bp ▸ separate loci ▸ reads ▸ MAPQ; ties reported
                                                                          │
-            detection rule: contiguous 1000 bp │ 2 regions │ 2 reads at 2 loci
+            detection rule: contiguous 1000 bp │ 2 regions   (the Terra rules)
+                          [ + 2 reads at 2 loci, with --min-specific-reads 2 ]
                                                                          │
                             [DIAMOND vs nr] ─► negative controls ─► final call
                                                                          │
@@ -144,18 +145,28 @@ classified one at a time. Alignments run `--jobs` at a time with `--threads` eac
 A virus is **detected** when the best of its candidate references meets either condition:
 
 * **contiguous** — one region (segment or genome) has an unbroken run of at least `min_region_bp` (1000) bases at depth `min_depth` (2) or more, using unique reads (MAPQ ≥ 20, duplicates removed); or
-* **multi-region** — at least `min_qualifying_regions` (2) separate regions each have a block of at least `min_block_bp` (200) such bases; or
-* **two-position** — at least `min_specific_reads` (2) unique reads sit at `min_specific_positions` (2) or more **separate loci**.
+* **multi-region** — at least `min_qualifying_regions` (2) separate regions each have a block of at least `min_block_bp` (200) such bases.
+
+These are the WDL's two rules, and they are what runs by default, so a run of this
+package still reproduces the Terra V15 result.
+
+### A third rule, off by default (`--min-specific-reads 2`)
+
+* **two-position** — at least `min_specific_reads` unique reads sit at `min_specific_positions` (2) or more **separate loci**.
+
+It is **not on by default**, because switching it on changes what the Terra workflow
+calls — it is an addition to that workflow, not a replacement for it. Opt in with
+`--min-specific-reads 2`.
 
 The rule that fired is recorded in `detection_rule`, so a weak pass is never mistaken for a
 strong one. The third rule is the weakest by design: it asks only for evidence that is not
 one piece of genome read twice. Reads whose alignments overlap are **one locus** however
 many of them there are, which is what stops a repeat, a conserved stretch or a PCR stack
 from clearing it — ten reads piled on one spot do not detect, two reads at two loci do.
-Set `--min-specific-reads 0` to switch it off and keep the coverage rules alone.
 
-Because it is a low bar, it makes the evidence review and the genus rescue load-bearing
-rather than optional: they are what separate two real reads from two reads of a relative.
+Because it is a low bar, turning it on makes the evidence review and the genus rescue
+load-bearing rather than optional: they are what separate two real reads from two reads
+of a relative.
 
 ### Picking the best reference
 

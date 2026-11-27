@@ -32,10 +32,11 @@ best reference per virus
   │     ──► reported in n_references_tied / tied_references, not silently broken
   │
 DETECTION RULE          fires           column: detection_rule
-  contiguous            one unbroken block >= 1000 bp at depth >= 2
-  multi-region          >= 2 regions each holding a block >= 200 bp
+  contiguous            one unbroken block >= 1000 bp at depth >= 2   ] the Terra
+  multi-region          >= 2 regions each holding a block >= 200 bp   ] rules
   two-position          >= 2 unique reads at >= 2 separate loci
                         (overlapping reads merge into ONE locus)
+                        OFF by default; --min-specific-reads 2 adds it
   │
 DIAMOND blastx of the block vs nr (optional, --diamond-db)
   │
@@ -44,6 +45,10 @@ negative-control comparison (reads per million vs the NTC/NEC)
 final_call   detected, confirmed / detected, unconfirmed /
              suspect: control background / not detected / control sample
 ```
+
+**The two Terra rules are the default.** The package reproduces the V15 run as
+it stands; the two-position rule is an addition you ask for, not a change to
+what the first workflow calls.
 
 **Why loci and not reads.** Ten reads stacked on one spot are one piece of
 genome seen ten times — a repeat, a conserved stretch, a PCR duplicate that
