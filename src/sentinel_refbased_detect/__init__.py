@@ -12,5 +12,12 @@ Reference-based detection of priority pathogens in sentinel NGS data:
 7. Compare against negative controls and make the combined final call.
 """
 
+from pathlib import Path
+
 __version__ = "0.15.0"
 WDL_METHOD = "agora://warn-id/sentinel_refbased_detect/19"
+
+# Priority-pathogen table used by the Terra V15 configuration
+# (gs://lasvdata/Refgenomes_V15.tsv), shipped with the package.
+DATA_DIR = Path(__file__).parent / "data"
+DEFAULT_REF_TSV = DATA_DIR / "Refgenomes_V15.tsv"

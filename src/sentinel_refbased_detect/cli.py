@@ -7,7 +7,7 @@ import subprocess
 import sys
 from dataclasses import MISSING
 
-from . import __version__, WDL_METHOD
+from . import DEFAULT_REF_TSV, __version__, WDL_METHOD
 from .params import Params, param_fields
 from .utils import PipelineError
 
@@ -51,9 +51,10 @@ def build_parser():
     req.add_argument("-k", "--kraken-db",
                      help="Kraken2 database: a directory with hash.k2d/opts.k2d/taxo.k2d, "
                           "or a .tar.gz/.tar.zst archive of one")
-    req.add_argument("-r", "--ref-tsv", required=True,
-                     help="priority pathogen table (Refgenomes_V15.tsv): taxid, code, name, "
-                          "colon-joined accessions; no header. Local path, gs:// or https://")
+    req.add_argument("-r", "--ref-tsv", default=str(DEFAULT_REF_TSV),
+                     help="priority pathogen table: taxid, code, name, colon-joined accessions; "
+                          "no header. Local path, gs:// or https://. Default: the bundled "
+                          "Refgenomes_V15.tsv")
     req.add_argument("-i", "--fastq-dir", help="directory of FASTQ files (*.fastq.gz, *_R1_001.fastq.gz, ...)")
     req.add_argument("-o", "--outdir", required=True, help="output directory")
     req.add_argument("--ncbi-email", default=os.environ.get("NCBI_EMAIL"),
@@ -101,7 +102,27 @@ def build_parser():
     _add_param_args(r)
 
     sub.add_parser("check", help="check that external tools are installed")
+
+    rf = sub.add_parser("refs", help="show or export the bundled reference table")
+    rf.add_argument("--export", metavar="PATH",
+                    help="copy the bundled Refgenomes_V15.tsv to PATH (to edit it)")
     return p
+
+
+def refs_command(args):
+    if args.export:
+        shutil.copyfile(DEFAULT_REF_TSV, args.export)
+        print("copied to %s" % args.export)
+        return
+    n, taxids = 0, set()
+    with open(DEFAULT_REF_TSV) as fh:
+        for line in fh:
+            f = line.rstrip("\n").split("\t")
+            if f and f[0].strip().isdigit():
+                n += 1
+                taxids.add(f[0].strip())
+    print(DEFAULT_REF_TSV)
+    print("%d reference rows, %d taxids" % (n, len(taxids)))
 
 
 def check_tools():
@@ -130,6 +151,9 @@ def main(argv=None):
     args = build_parser().parse_args(argv)
     if args.command == "check":
         sys.exit(0 if check_tools() else 1)
+    if args.command == "refs":
+        refs_command(args)
+        return
 
     if not args.fastq_dir and not args.samplesheet:
         sys.exit("error: give --fastq-dir or --samplesheet")

@@ -44,7 +44,7 @@ On Apple Silicon, if a bioconda package has no arm64 build, create the env with
 | Input | Flag | Notes |
 |---|---|---|
 | Kraken2 database | `-k/--kraken-db` | A directory containing `hash.k2d`, `opts.k2d` and `taxo.k2d` (the same as `gs://krakendb/`), or a `.tar.gz`/`.tar.zst` archive of one |
-| Reference table | `-r/--ref-tsv` | `Refgenomes_V15.tsv`: taxid, code, name, colon-joined accessions, no header. Accepts a local path, `gs://…` (needs `gcloud`) or `https://…` |
+| Reference table | `-r/--ref-tsv` | **Optional.** `Refgenomes_V15.tsv` (the same as `gs://lasvdata/Refgenomes_V15.tsv`) is bundled in [`src/sentinel_refbased_detect/data/`](src/sentinel_refbased_detect/data/Refgenomes_V15.tsv) and used by default. Pass your own table to override it: taxid, code, name, colon-joined accessions, no header; a local path, `gs://…` or `https://…` |
 | FASTQ directory | `-i/--fastq-dir` | `*_R1_001.fastq.gz`/`*_R2_001.fastq.gz`, `*_1.fq.gz`, single-end files, multiple lanes |
 | NCBI e-mail | `--ncbi-email` or `$NCBI_EMAIL` | Required by NCBI E-utilities. `--ncbi-api-key`/`$NCBI_API_KEY` raises the rate limit |
 
@@ -59,14 +59,20 @@ files `NEC…`, `NTC…` and so on. If your file names don't fit this pattern, u
 
 ```bash
 export NCBI_EMAIL=you@example.org
-gcloud storage cp gs://lasvdata/Refgenomes_V15.tsv .
 
 sentinel-detect run \
     --kraken-db /data/krakendb \
-    --ref-tsv   Refgenomes_V15.tsv \
     --fastq-dir /data/run_261029/fastq \
     --outdir    results_261029 \
     --threads 8 --jobs 4
+```
+
+This uses the bundled `Refgenomes_V15.tsv`. To change the pathogen panel:
+
+```bash
+sentinel-detect refs                          # where the bundled table is, and how many rows
+sentinel-detect refs --export my_panel.tsv    # copy it, edit it, then run with:
+sentinel-detect run --ref-tsv my_panel.tsv ...
 ```
 
 Optional DIAMOND confirmation of detected blocks (the same nr stage as on Terra):
