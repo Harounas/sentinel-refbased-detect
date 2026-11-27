@@ -5,9 +5,10 @@ import os
 import shutil
 import subprocess
 import sys
+from pathlib import Path
 from dataclasses import MISSING
 
-from . import DEFAULT_REF_TSV, __version__, WDL_METHOD
+from . import DEFAULT_PANEL_TSV, DEFAULT_REF_TSV, __version__, WDL_METHOD
 from .params import Params, param_fields
 from .utils import PipelineError
 
@@ -98,6 +99,11 @@ def build_parser():
                          "coverage rule, scoring identity, mapping quality, genome "
                          "distribution, coverage, controls, background and reference "
                          "specificity. Advisory only: it never changes 'detection'")
+    rt.add_argument("--decoy-panel", default=str(DEFAULT_PANEL_TSV),
+                    help="panel of sibling species and clustered strain genomes the "
+                         "specificity check maps against. Default: the bundled panel, "
+                         "if one has been built. Pass '' to use only this sample's own "
+                         "candidate references")
     rt.add_argument("--keep-going", action="store_true",
                     help="summarise even if some alignment jobs failed")
     rt.add_argument("--keep-intermediate", action="store_true", help="keep intermediate BAMs/indexes")
@@ -109,10 +115,53 @@ def build_parser():
 
     sub.add_parser("check", help="check that external tools are installed")
 
+    pl = sub.add_parser("panel", help="build the decoy panel used by the specificity check")
+    pl.add_argument("action", choices=["build", "show"])
+    pl.add_argument("-r", "--ref-tsv", default=str(DEFAULT_REF_TSV),
+                    help="priority pathogen table the panel guards")
+    pl.add_argument("-o", "--out", default=str(DEFAULT_PANEL_TSV), help="panel TSV to write")
+    pl.add_argument("--kinds", nargs="+", default=["sibling"], choices=["sibling", "strain"],
+                    help="sibling: one RefSeq genome per other species of the genus. "
+                         "strain: genomes of the pathogen itself, clustered to representatives")
+    pl.add_argument("--identity", type=float, default=0.95,
+                    help="identity at which strain genomes collapse to one representative")
+    pl.add_argument("--max-candidates", type=int, default=300,
+                    help="strain genomes considered per species before clustering")
+    pl.add_argument("--cache-dir", default=None, help="where downloads are cached")
+    pl.add_argument("--taxdump", help="NCBI taxdump.tar.gz (downloaded if omitted)")
+    pl.add_argument("--ncbi-email", default=os.environ.get("NCBI_EMAIL"))
+    pl.add_argument("--ncbi-api-key", default=os.environ.get("NCBI_API_KEY"))
+    pl.add_argument("-v", "--verbose", action="store_true")
+
     rf = sub.add_parser("refs", help="show or export the bundled reference table")
     rf.add_argument("--export", metavar="PATH",
                     help="copy the bundled Refgenomes_V15.tsv to PATH (to edit it)")
     return p
+
+
+def panel_command(args):
+    from . import panel
+    from .ncbi import Entrez
+    from .pipeline import setup_logging
+
+    if args.action == "show":
+        rows = panel.load_panel(DEFAULT_PANEL_TSV)
+        if not rows:
+            print("no panel at %s; build one with: sentinel-detect panel build" % DEFAULT_PANEL_TSV)
+            return
+        n = sum(len(v) for v in rows.values())
+        print(DEFAULT_PANEL_TSV)
+        print("%d panel rows guarding %d priority taxa" % (n, len(rows)))
+        return
+
+    if not args.ncbi_email:
+        sys.exit("error: --ncbi-email (or $NCBI_EMAIL) is required by NCBI E-utilities")
+    out = Path(args.out)
+    cache = Path(args.cache_dir) if args.cache_dir else out.parent / "panel_cache"
+    setup_logging(out.parent, args.verbose)
+    panel.build(args.ref_tsv, out, Entrez(args.ncbi_email, args.ncbi_api_key), cache,
+                kinds=tuple(args.kinds), taxdump=args.taxdump,
+                min_identity=args.identity, max_candidates=args.max_candidates)
 
 
 def refs_command(args):
@@ -159,6 +208,9 @@ def main(argv=None):
         sys.exit(0 if check_tools() else 1)
     if args.command == "refs":
         refs_command(args)
+        return
+    if args.command == "panel":
+        panel_command(args)
         return
 
     if not args.fastq_dir and not args.samplesheet:

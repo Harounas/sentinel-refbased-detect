@@ -169,19 +169,74 @@ against seven criteria:
 | Genome coverage | Breadth of the reference covered | ≥ 0.1% |
 | Negative controls | The same virus in this run's controls | sample ≥ 10× the loudest control |
 | Background | A much louder sample on the run that could have bled in | no run-mate ≥ 100× louder |
-| Reference specificity | Whether the reads stay on this virus when the run's other references compete for them, realigned with bwa | ≥ 80% retained |
+| Reference specificity | Whether the reads can be attributed to this taxon when sibling species and strain genomes compete for them | ≥ 80% of reads attributed |
 
 Specificity treats references of the **same species** as on-target: three adenovirus C
 references trading reads among themselves says nothing about whether the sequence is
 adenovirus. What matters is whether it is distinguishable from other taxa.
 
+### What the reads are weighed against: the decoy panel
+
+Comparing only against the references Kraken2 happened to flag in that same sample has a
+blind spot: if the reads really come from a relative the classifier never called, nothing
+competes and specificity passes by default. So the check also maps against a **decoy
+panel**, bundled with the package and generated rather than hand-curated:
+
+| Role | What it is | Why |
+|---|---|---|
+| `sibling` | One RefSeq genome per **other species of the same genus** | These are the genomes a read from a neighbouring virus would really prefer |
+| `strain` | Genomes of the **priority species itself**, clustered to representatives | A true read must have somewhere right to go; without strains it looks ambiguous merely because the panel holds one arbitrary lineage |
+
+Genus, not family: genus holds the genuinely confusable genomes, while family mostly adds
+distant ones that would never win a read, at a large cost in index size. Where a taxon has
+no genus, the builder falls back to family.
+
+Strain genomes are deduplicated by **MinHash clustering** (Mash distances, no external
+tool), keeping the longest genome of each group above the identity threshold. Hundreds of
+near-identical deposits would otherwise split one taxon's evidence across copies of the
+same sequence.
+
+```bash
+sentinel-detect panel show                    # what the bundled panel covers
+sentinel-detect panel build                   # regenerate the sibling panel
+sentinel-detect panel build --kinds sibling strain --identity 0.95
+sentinel-detect run --decoy-panel ''          # or switch it off
+```
+
+Rebuild it deliberately, read the diff, bump the version. Set `NCBI_EMAIL` to your own
+address first; the bundled panel was generated with a generic contact.
+
+### How the criterion is scored
+
+Not "did the reads stay put". With sibling species and strain genomes in the pool, a
+genuine read often fits several genomes equally well, and counting that as a loss would
+fail real findings. The question is **can these reads be attributed to this taxon**:
+
+1. Every read is realigned against the whole pool with `bwa mem -a`, keeping all alignments.
+2. A read that fits **one taxon alone** is counted there (`n_reads_unique_to_target`,
+   `n_reads_unique_elsewhere`).
+3. A read that fits **several taxa equally** is ambiguous (`n_reads_ambiguous`) and is
+   shared out between them in proportion to the reads that fit only one — so a strain with
+   real unique support claims the share its own evidence earns, which is the weighting by
+   reads mapped that this is built around.
+4. `pct_reads_attributed_to_target` is the resulting share, and the criterion passes at
+   `--evidence-min-retained` (80% by default).
+
+Strain genomes of the same taxon count as on-target, as do several references of one
+species: three adenovirus C references trading reads among themselves says nothing about
+whether the sequence is adenovirus. `--evidence-score-margin` widens what counts as an
+equal fit, if you want near-ties treated as ambiguous too.
+
 The review records what the reads were weighed against, not just the headline percentage:
 
 | Column | Example |
 |---|---|
+| `pct_reads_attributed_to_target` | `92.5` |
+| `n_reads_unique_to_target` / `n_reads_unique_elsewhere` / `n_reads_ambiguous` | `20` / `0` / `10` |
+| `reads_by_taxon` | `this taxon:28.5;Mopeia mammarenavirus:1.5` |
 | `n_competing_references` | `2` |
 | `competing_references_tested` | `Human mastadenovirus C; Human adenovirus 5` |
-| `reads_by_reference` | `10533__HAdV-1__0 [target]:3;129951__HAdV-C__0 [other taxon]:7;28285__HAdV-5__0 [other taxon]:2` |
+| `reads_by_reference` | `10533__HAdV-1__0 [target]:3;129951__HAdV-C__0 [other taxon]:7` |
 | `competing_best_reference` | `129951__HAdV-C__0 = Human mastadenovirus C (7 reads)` |
 
 `reads_by_reference` is keyed by reference tag (`<taxid>__<code>__<index>`), because

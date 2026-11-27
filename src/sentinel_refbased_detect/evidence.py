@@ -53,9 +53,11 @@ REVIEW_COLS = [
     "sample_signal_rpm", "max_other_sample_rpm", "max_other_sample", "hopping_ratio",
     "background_verdict",
     # 7 reference specificity
-    "n_reads_retained_on_target", "pct_reads_retained_on_target",
+    "pct_reads_attributed_to_target", "n_reads_unique_to_target",
+    "n_reads_unique_elsewhere", "n_reads_ambiguous",
     "n_competing_references", "competing_references_tested",
-    "reads_by_reference", "competing_best_reference", "specificity_verdict",
+    "reads_by_taxon", "reads_by_reference", "competing_best_reference",
+    "specificity_verdict",
     # overall
     "criteria_passed", "criteria_assessable", "evidence_verdict", "evidence_reason",
 ]
@@ -144,7 +146,7 @@ def alignment_metrics(align_dir, bin_bp):
     }
 
 
-def build_competitor_index(sample_dir, target_tag, work_dir, same_taxon_tags=()):
+def build_competitor_index(sample_dir, target_tag, work_dir, same_taxon_tags=(), decoys=()):
     """One bwa index of every OTHER candidate reference of this sample.
 
     Related genomes from the same run are the competitors that matter: if the
@@ -159,7 +161,8 @@ def build_competitor_index(sample_dir, target_tag, work_dir, same_taxon_tags=())
     """
     refs = sorted(p for p in Path(sample_dir, "refs").glob("*.fasta")
                   if p.name[:-len(".fasta")] != target_tag)
-    if not refs:
+    decoys = [Path(d) for d in decoys]
+    if not refs and not decoys:
         return None, {}, []
     work_dir = Path(work_dir)
     work_dir.mkdir(parents=True, exist_ok=True)
@@ -168,7 +171,7 @@ def build_competitor_index(sample_dir, target_tag, work_dir, same_taxon_tags=())
     on_target = set()
     if not (work_dir / "competitors.fasta.bwt").exists():
         with open(combined, "w") as out:
-            for fa in [target_fa] + refs:
+            for fa in [target_fa] + refs + decoys:
                 tag = fa.name[:-len(".fasta")]
                 with open(fa) as fh:
                     for line in fh:
@@ -178,32 +181,41 @@ def build_competitor_index(sample_dir, target_tag, work_dir, same_taxon_tags=())
                         else:
                             out.write(line)
         run(["bwa", "index", combined], stderr=work_dir / "bwa.log")
+    decoy_by_tag = {p.name[:-len(".fasta")]: p for p in decoys}
     for tag in (target_tag,) + tuple(same_taxon_tags):
-        fa = Path(sample_dir, "refs", tag + ".fasta")
+        fa = decoy_by_tag.get(tag) or Path(sample_dir, "refs", tag + ".fasta")
         if not fa.exists():
             continue
         with open(fa) as fh:
             for line in fh:
                 if line.startswith(">"):
                     on_target.add("%s|%s" % (tag, line[1:].split()[0]))
-    competitors = [p.name[:-len(".fasta")] for p in refs
+    competitors = [p.name[:-len(".fasta")] for p in refs + decoys
                    if p.name[:-len(".fasta")] not in set(same_taxon_tags)]
     return combined, on_target, competitors
 
 
 def reference_specificity(align_dir, sample_dir, target_tag, work_dir, threads=2,
-                          same_taxon_tags=(), tag_labels=None):
-    """Criterion 7: do the mapped reads stay on this virus when its neighbours
-    from the same run compete for them?"""
+                          same_taxon_tags=(), tag_labels=None, decoys=(),
+                          tag_taxon=None, margin=0, em_rounds=20):
+    """Criterion 7: can these reads be attributed to this taxon?
+
+    Not "did they stay put": with sibling species and strain genomes in the
+    pool a true read often fits several references equally well, and counting
+    that as a loss would fail real findings. Reads that fit one taxon alone are
+    counted there; reads that tie are shared out in proportion to that
+    unambiguous evidence, which is what the user's weighting asks for.
+    """
     align_dir, work_dir = Path(align_dir), Path(work_dir)
     bam = align_dir / "unique.bam"
     if not bam.exists():
         return None
     labels = tag_labels or {}
-    blank = {"n_retained": "", "pct_retained": "", "competing_best": "",
-             "n_competitors": 0, "competitors": "", "reads_by_reference": ""}
+    blank = {"pct_target": "", "n_unique_target": "", "n_unique_other": "",
+             "n_ambiguous": "", "competing_best": "", "n_competitors": 0,
+             "competitors": "", "reads_by_taxon": "", "reads_by_reference": ""}
     built = build_competitor_index(sample_dir, target_tag, work_dir,
-                                   same_taxon_tags=same_taxon_tags)
+                                   same_taxon_tags=same_taxon_tags, decoys=decoys)
     if built[0] is None:
         return dict(blank, competing_best="no competing reference on this sample")
     index, on_target, competitors = built
@@ -226,32 +238,101 @@ def reference_specificity(align_dir, sample_dir, target_tag, work_dir, threads=2
     logf = work_dir / "specificity.log"
     # Everything on stdout, mates included: these reads are realigned as
     # single-end, so pairing does not matter and must not reach the console.
-    run(["samtools", "fastq", "-n", bam], stdout=fq, stderr=logf)
+    # -N, not -n: both mates otherwise carry the same name. bwa then strips the
+    # /1 and /2 it adds, so rewrite them to a suffix it keeps; without this the
+    # two mates merge into one observation and every count below is halved.
+    raw = work_dir / ("%s.raw.fastq" % target_tag)
+    run(["samtools", "fastq", "-N", bam], stdout=raw, stderr=logf)
+    with open(raw) as src, open(fq, "w") as dst:
+        for i, line in enumerate(src):
+            if i % 4 == 0 and line.startswith("@"):
+                name = line[1:].rstrip("\n")
+                dst.write("@%s\n" % re.sub(r"/([12])$", r"_mate\1", name))
+            else:
+                dst.write(line)
+    os.remove(raw)
     if not os.path.getsize(fq):
-        return dict(blank, n_retained=0, n_competitors=len(competitors), competitors=comp_desc)
+        return dict(blank, n_unique_target=0, n_competitors=len(competitors),
+                    competitors=comp_desc)
 
+    # -a reports every alignment, not just the best one, which is what makes
+    # the ambiguity visible: a read that fits two strains equally well has to
+    # be seen fitting both before it can be apportioned between them.
     sam = work_dir / ("%s.competitors.sam" % target_tag)
-    run(["bwa", "mem", "-t", str(threads), index, fq], stdout=sam, stderr=logf)
-    kept = moved = 0
-    elsewhere, landed = {}, {}
+    run(["bwa", "mem", "-a", "-t", str(threads), index, fq], stdout=sam, stderr=logf)
+
+    taxon_of = dict(tag_taxon or {})
+    TARGET = "__target__"
+    for t in (target_tag,) + tuple(same_taxon_tags):
+        taxon_of[t] = TARGET
+
+    per_read, landed = {}, {}
     with open(sam) as fh:
         for line in fh:
             if line.startswith("@"):
                 continue
-            f = line.split("\t")
-            flag = int(f[1])
-            if flag & 0x904:            # secondary, supplementary or unmapped
+            f = line.rstrip("\n").split("\t")
+            if len(f) < 11 or int(f[1]) & 0x804:     # unmapped or supplementary
+                continue
+            score = None
+            for tag in f[11:]:
+                if tag.startswith("AS:i:"):
+                    score = int(tag[5:])
+                    break
+            if score is None:
                 continue
             tag = f[2].split("|")[0]
-            landed[tag] = landed.get(tag, 0) + 1
-            if f[2] in on_target:
-                kept += 1
-            else:
-                moved += 1
-                elsewhere[tag] = elsewhere.get(tag, 0) + 1
-    os.remove(sam)
-    os.remove(fq)
-    total = kept + moved
+            hits = per_read.setdefault(f[0], {})
+            # Best score per reference, then per taxon below.
+            if tag not in hits or score > hits[tag]:
+                hits[tag] = score
+
+    for name, hits in per_read.items():
+        best_tag = max(hits, key=hits.get)
+        landed[best_tag] = landed.get(best_tag, 0) + 1
+
+    # A read counts for a taxon when that taxon holds an alignment within
+    # `margin` of the read's best score anywhere. Ties stay ties instead of
+    # being handed to whichever reference bwa happened to report first.
+    unique, ambiguous = {}, []
+    for name, hits in per_read.items():
+        best = max(hits.values())
+        taxa = {taxon_of.get(t, t) for t, s in hits.items() if s >= best - margin}
+        if len(taxa) == 1:
+            k = next(iter(taxa))
+            unique[k] = unique.get(k, 0) + 1
+        else:
+            ambiguous.append(taxa)
+
+    # Reads that fit several taxa equally are split between them in proportion
+    # to the reads that fit only one, so a strain carrying real unique support
+    # claims the share of the ambiguous reads that its own evidence earns.
+    weight = {k: float(v) for k, v in unique.items()}
+    for taxa in ambiguous:
+        for k in taxa:
+            weight.setdefault(k, 0.0)
+    if ambiguous and weight:
+        for _ in range(em_rounds):
+            new = {k: float(unique.get(k, 0)) for k in weight}
+            for taxa in ambiguous:
+                total_w = sum(weight[k] for k in taxa)
+                if total_w > 0:
+                    for k in taxa:
+                        new[k] += weight[k] / total_w
+                else:                       # no unique evidence anywhere: split evenly
+                    for k in taxa:
+                        new[k] += 1.0 / len(taxa)
+            weight = new
+
+    total_w = sum(weight.values())
+    pct_target = round(100.0 * weight.get(TARGET, 0.0) / total_w, 2) if total_w else ""
+    others = {k: v for k, v in weight.items() if k != TARGET and v > 0}
+    best_taxon = max(others, key=others.get) if others else ""
+    by_taxon = ";".join(
+        "%s:%.1f" % ("this taxon" if k == TARGET else k, v)
+        for k, v in sorted(weight.items(), key=lambda kv: (kv[0] != TARGET, -kv[1], kv[0]))
+        if v > 0)
+    elsewhere = {t: n for t, n in landed.items() if taxon_of.get(t, t) != TARGET}
     best = max(elsewhere, key=elsewhere.get) if elsewhere else ""
     # Where every read ended up, target first, so a reviewer can see what the
     # reads were weighed against and not only the headline percentage.
@@ -263,8 +344,11 @@ def reference_specificity(align_dir, sample_dir, target_tag, work_dir, threads=2
                      (" [same taxon]" if t in set(same_taxon_tags) else " [other taxon]"), n)
         for t, n in sorted(landed.items(),
                            key=lambda kv: (kv[0] != target_tag, -kv[1], kv[0])))
-    return {"n_retained": kept,
-            "pct_retained": round(100.0 * kept / total, 2) if total else "",
+    return {"pct_target": pct_target,
+            "n_unique_target": unique.get(TARGET, 0),
+            "n_unique_other": sum(v for k, v in unique.items() if k != TARGET),
+            "n_ambiguous": len(ambiguous),
+            "reads_by_taxon": by_taxon,
             "competing_best": ("%s = %s (%d reads)"
                                % (best, labels.get(best, best), elsewhere[best]))
                               if best else "",
@@ -280,8 +364,45 @@ def _f(value, default=0.0):
         return default
 
 
+def decoy_references(taxid, panel_by_taxid, cache_dir, entrez):
+    """Fetch this taxon's panel genomes, cached across runs.
+
+    Returns (paths, tag -> taxon label). Panel rows are the sibling species of
+    the same genus, plus clustered strain representatives of the taxon itself,
+    so a true read has somewhere right to go and a read from a neighbour has
+    somewhere better to go.
+    """
+    rows = panel_by_taxid.get(str(taxid), [])
+    if not rows or entrez is None:
+        return [], {}, {}
+    cache_dir = Path(cache_dir)
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    paths, labels, taxon_of = [], {}, {}
+    for row in rows:
+        accs = [a for a in (row.get("accessions") or "").split(":") if a]
+        if not accs:
+            continue
+        tag = "panel_%s_%s" % (row.get("role", "sibling"), accs[0].replace(".", "_"))
+        fa = cache_dir / (tag + ".fasta")
+        if not fa.exists():
+            try:
+                text = entrez.efetch_fasta(accs)
+            except Exception as exc:  # noqa: BLE001
+                log.warning("  panel genome %s unavailable: %s", accs[0], exc)
+                continue
+            tmp = fa.with_name(fa.name + ".part")
+            tmp.write_text(text if text.endswith("\n") else text + "\n")
+            tmp.rename(fa)
+        paths.append(fa)
+        labels[tag] = row.get("name") or row.get("taxid", "")
+        # Strain genomes of the taxon itself are on-target; siblings are not.
+        taxon_of[tag] = ("__same__" if row.get("role") == "strain"
+                         else (row.get("name") or row.get("taxid", "")))
+    return paths, labels, taxon_of
+
+
 def review(summary_tsv, out_path, outdir, params, library_sizes=None, threads=2,
-           control_regex=None):
+           control_regex=None, panel_by_taxid=None, entrez=None, cache_dir=None):
     """Score every failing priority row; write the review table.
 
     Returns {(sample_id, taxid): {"evidence_verdict": ..., "evidence_reason": ...}}
@@ -350,10 +471,19 @@ def review(summary_tsv, out_path, outdir, params, library_sizes=None, threads=2,
         spec = None
         if m and m["n_reads"] >= params.evidence_min_reads_for_specificity:
             kin = [t for t in same_taxon.get(sample_id, {}).get(taxon_key(r), []) if t != tag]
+            decoys, dec_labels, dec_taxon = decoy_references(
+                taxid, panel_by_taxid or {}, Path(cache_dir or outdir) / "panel", entrez)
+            # A strain genome of this same taxon counts as on-target.
+            kin = kin + [t for t, v in dec_taxon.items() if v == "__same__"]
+            labels = dict(tag_labels, **dec_labels)
+            taxon_of = {t: v for t, v in dec_taxon.items() if v != "__same__"}
             try:
                 spec = reference_specificity(align_dir, sample_dir, tag,
                                              work_root / sample_id / tag, threads=threads,
-                                             same_taxon_tags=kin, tag_labels=tag_labels)
+                                             same_taxon_tags=kin, tag_labels=labels,
+                                             decoys=decoys, tag_taxon=taxon_of,
+                                             margin=params.evidence_score_margin,
+                                             em_rounds=params.evidence_em_rounds)
             except PipelineError as exc:
                 log.warning("  specificity check failed: %s", exc)
 
@@ -438,12 +568,12 @@ def review(summary_tsv, out_path, outdir, params, library_sizes=None, threads=2,
                              % (loudest["sample_id"] if loudest else "", ratio))
 
         spec_ok = None
-        if spec and spec["pct_retained"] != "":
-            spec_ok = _f(spec["pct_retained"]) >= params.evidence_min_retained
+        if spec and spec["pct_target"] != "":
+            spec_ok = _f(spec["pct_target"]) >= params.evidence_min_retained
         specificity_v = score(spec_ok, "specificity",
-                              "only %s%% of the reads stay on this virus when related "
-                              "references compete; %s takes the rest"
-                              % (spec["pct_retained"] if spec else "",
+                              "only %s%% of the reads are attributable to this taxon once "
+                              "related genomes compete; %s takes the rest"
+                              % (spec["pct_target"] if spec else "",
                                  spec["competing_best"] if spec else ""))
 
         # --- overall ------------------------------------------------------
@@ -495,8 +625,11 @@ def review(summary_tsv, out_path, outdir, params, library_sizes=None, threads=2,
             "max_other_sample": loudest["sample_id"] if loudest else "",
             "hopping_ratio": ratio,
             "background_verdict": background_v,
-            "n_reads_retained_on_target": spec["n_retained"] if spec else "",
-            "pct_reads_retained_on_target": spec["pct_retained"] if spec else "",
+            "pct_reads_attributed_to_target": spec["pct_target"] if spec else "",
+            "n_reads_unique_to_target": spec["n_unique_target"] if spec else "",
+            "n_reads_unique_elsewhere": spec["n_unique_other"] if spec else "",
+            "n_reads_ambiguous": spec["n_ambiguous"] if spec else "",
+            "reads_by_taxon": spec["reads_by_taxon"] if spec else "",
             "n_competing_references": spec["n_competitors"] if spec else "",
             "competing_references_tested": spec["competitors"] if spec else "",
             "reads_by_reference": spec["reads_by_reference"] if spec else "",

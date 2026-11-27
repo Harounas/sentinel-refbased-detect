@@ -58,7 +58,9 @@ class Params:
     evidence_min_breadth: float = _p(0.001, "Fraction of the reference covered for the coverage criterion to pass.", "evidence")
     evidence_hopping_ratio: float = _p(100.0, "How many times louder another sample must be before cross-talk is a plausible explanation.", "evidence")
     evidence_min_reads_for_specificity: int = _p(2, "Mapped reads needed before the competing-reference check is run.", "evidence")
-    evidence_min_retained: float = _p(80.0, "Percent of reads that must stay on the target when related references compete.", "evidence")
+    evidence_min_retained: float = _p(80.0, "Percent of reads that must be attributable to the target taxon once related genomes compete. Reads that fit several taxa equally are shared out in proportion to the reads that fit only one.", "evidence")
+    evidence_score_margin: int = _p(0, "Alignment-score margin within which a second taxon counts as fitting a read equally well. 0 means an exact tie; raise it to treat near-ties as ambiguous too.", "evidence")
+    evidence_em_rounds: int = _p(20, "Rounds used to apportion ambiguous reads between taxa.", "evidence")
     evidence_min_criteria: int = _p(4, "Criteria that must pass for a verdict of 'equivocal' rather than 'not supported'. One failure out of enough passes is equivocal; two or more is not supported.", "evidence")
 
     # --- DIAMOND -------------------------------------------------------------

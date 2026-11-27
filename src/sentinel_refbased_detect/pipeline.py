@@ -254,9 +254,15 @@ def run_pipeline(args, params):
     # final table and writes its verdict back into it, leaving `detection` and
     # `final_call` untouched.
     if args.evidence_review and n_rows and not args.no_bam:
-        from . import evidence
+        from . import evidence, panel
+        panel_rows = panel.load_panel(args.decoy_panel) if args.decoy_panel else {}
+        if args.decoy_panel and not panel_rows:
+            log.info("no decoy panel at %s; the specificity check uses this sample's own "
+                     "references only. Build one with: sentinel-detect panel build",
+                     args.decoy_panel)
         verdicts = evidence.review(final, outdir / "evidence_review.tsv", outdir, params,
-                                   library_sizes=lib, threads=args.threads)
+                                   library_sizes=lib, threads=args.threads,
+                                   panel_by_taxid=panel_rows, entrez=entrez, cache_dir=cache)
         # Always annotate, so the columns exist whether or not anything was
         # reviewed; rows that were not reviewed say so.
         evidence.annotate(final, verdicts, outdir / "detection_summary_final.annotated.tsv")
