@@ -260,9 +260,13 @@ def run_pipeline(args, params):
             log.info("no decoy panel at %s; the specificity check uses this sample's own "
                      "references only. Build one with: sentinel-detect panel build",
                      args.decoy_panel)
+        bg = None
+        if args.background_index:
+            bg = evidence.load_background(localize(args.background_index, cache / "background"))
         verdicts = evidence.review(final, outdir / "evidence_review.tsv", outdir, params,
                                    library_sizes=lib, threads=args.threads,
-                                   panel_by_taxid=panel_rows, entrez=entrez, cache_dir=cache)
+                                   panel_by_taxid=panel_rows, entrez=entrez, cache_dir=cache,
+                                   background=bg)
         # Always annotate, so the columns exist whether or not anything was
         # reviewed; rows that were not reviewed say so.
         evidence.annotate(final, verdicts, outdir / "detection_summary_final.annotated.tsv")

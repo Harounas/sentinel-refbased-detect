@@ -175,7 +175,38 @@ Specificity treats references of the **same species** as on-target: three adenov
 references trading reads among themselves says nothing about whether the sequence is
 adenovirus. What matters is whether it is distinguishable from other taxa.
 
-### What the reads are weighed against: the decoy panel
+### What the reads are weighed against: three layers
+
+The first two layers are derived from `Refgenomes_V15.tsv`, and that is their limit. They
+can say *these reads fit Lassa better than its neighbours*, but a read from a virus nobody
+listed, from the host, or from a reagent organism has nowhere to go and is credited to
+whatever reference it was aligned against. At ten or twenty reads that is the commonest
+way a false signal survives. So a third layer is built from NCBI directly and never
+consults the priority table:
+
+| Layer | Contents | Built by |
+|---|---|---|
+| `sibling` | One RefSeq genome per other species of each priority taxon's genus | `panel build` |
+| `strain` | Genomes of each priority species, clustered to representatives | `panel build --kinds strain` |
+| **background** | **Every RefSeq viral species (14,844, ~580 Mb), the host genome, and common reagent contaminants** | `background build` |
+
+```bash
+sentinel-detect background build -o /data/background \
+    --host GRCh38.fa --ncbi-email you@example.org       # ~3.6 Gb, built once
+sentinel-detect run --background-index /data/background/background.fasta ...
+```
+
+The background is one shared index, built once and reused, not one per pathogen: 3.6 Gb
+cannot be rebuilt for every row under review. `wdl/build_background_db.wdl` builds it on
+Terra and leaves the indexed archive in a bucket, which is where it belongs alongside the
+Kraken2 and nr databases.
+
+It changes what the specificity criterion can conclude. Without it, a pathogen whose genus
+holds no other species — ASFV, for instance — is tested against an empty field. With it,
+every read is offered the whole of RefSeq viral, the host and the reagent organisms, and
+`reads_by_taxon` names whatever actually won them.
+
+### The decoy panel
 
 Comparing only against the references Kraken2 happened to flag in that same sample has a
 blind spot: if the reads really come from a relative the classifier never called, nothing

@@ -100,6 +100,12 @@ def build_parser():
                          "coverage rule, scoring identity, mapping quality, genome "
                          "distribution, coverage, controls, background and reference "
                          "specificity. Advisory only: it never changes 'detection'")
+    rt.add_argument("--background-index",
+                    help="background.fasta that bwa has indexed: every RefSeq viral "
+                         "species, the host and reagent organisms, built independently "
+                         "of the priority table so a read from an unlisted virus or from "
+                         "the host has somewhere true to go. Build it with "
+                         "`sentinel-detect background build`")
     rt.add_argument("--decoy-panel", default=str(DEFAULT_PANEL_TSV),
                     help="panel of sibling species and clustered strain genomes the "
                          "specificity check maps against. Default: the bundled panel, "
@@ -150,10 +156,53 @@ def build_parser():
     pl.add_argument("--ncbi-api-key", default=os.environ.get("NCBI_API_KEY"))
     pl.add_argument("-v", "--verbose", action="store_true")
 
+    bg = sub.add_parser("background",
+                        help="build the background layer: every RefSeq viral species, "
+                             "the host genome and common reagent contaminants")
+    bg.add_argument("action", choices=["build"])
+    bg.add_argument("-o", "--out-dir", required=True, help="where background.fasta is written")
+    bg.add_argument("--host", help="host genome FASTA, e.g. GRCh38 (optional but recommended: "
+                                   "most unexplained reads are host)")
+    bg.add_argument("--no-viral", action="store_true", help="skip the RefSeq viral release files")
+    bg.add_argument("--no-contaminants", action="store_true", help="skip reagent genomes")
+    bg.add_argument("--accession2taxid", nargs="*", default=[],
+                    help="nucl_gb.accession2taxid(.gz); downloaded if omitted")
+    bg.add_argument("--taxdump", help="NCBI taxdump.tar.gz, used to name each sequence")
+    bg.add_argument("--cache-dir", default=None)
+    bg.add_argument("--no-index", action="store_true",
+                    help="assemble the FASTA but leave `bwa index` to the caller")
+    bg.add_argument("-t", "--threads", type=int, default=4)
+    bg.add_argument("--ncbi-email", default=os.environ.get("NCBI_EMAIL"))
+    bg.add_argument("--ncbi-api-key", default=os.environ.get("NCBI_API_KEY"))
+    bg.add_argument("-v", "--verbose", action="store_true")
+
     rf = sub.add_parser("refs", help="show or export the bundled reference table")
     rf.add_argument("--export", metavar="PATH",
                     help="copy the bundled Refgenomes_V15.tsv to PATH (to edit it)")
     return p
+
+
+def background_command(args):
+    from . import background
+    from .ncbi import Entrez
+    from .pipeline import setup_logging
+    from .taxonomy import extract_dmp, get_taxdump
+
+    out = Path(args.out_dir)
+    cache = Path(args.cache_dir) if args.cache_dir else out / "downloads"
+    setup_logging(out, args.verbose)
+    entrez = Entrez(args.ncbi_email, args.ncbi_api_key) if args.ncbi_email else None
+    dmp = None
+    if args.taxdump or not args.no_viral:
+        dmp = extract_dmp(get_taxdump(args.taxdump, cache / "taxonomy"),
+                          cache / "taxonomy" / "dmp")
+    fasta = background.build(out, entrez=entrez, host_fasta=args.host,
+                             include_viral=not args.no_viral,
+                             include_contaminants=not args.no_contaminants,
+                             acc2taxid_files=args.accession2taxid, dmp_dir=dmp,
+                             cache_dir=cache, index=not args.no_index,
+                             threads=args.threads)
+    print("background: %s" % fasta)
 
 
 def panel_command(args):
@@ -276,6 +325,9 @@ def main(argv=None):
         return
     if args.command == "panel":
         panel_command(args)
+        return
+    if args.command == "background":
+        background_command(args)
         return
 
     if not args.fastq_dir and not args.samplesheet:

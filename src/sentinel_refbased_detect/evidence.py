@@ -163,8 +163,9 @@ def build_competitor_index(sample_dir, target_tag, work_dir, same_taxon_tags=(),
     refs = sorted(p for p in Path(sample_dir, "refs").glob("*.fasta")
                   if p.name[:-len(".fasta")] != target_tag)
     decoys = [Path(d) for d in decoys]
-    if not refs and not decoys:
-        return None, {}, []
+    # The index always holds the target, even when nothing else is on offer:
+    # the background layer supplies the competitors in that case, and the
+    # reads still have to be scored against their own reference.
     work_dir = Path(work_dir)
     work_dir.mkdir(parents=True, exist_ok=True)
     combined = work_dir / "competitors.fasta"
@@ -196,9 +197,72 @@ def build_competitor_index(sample_dir, target_tag, work_dir, same_taxon_tags=(),
     return combined, on_target, competitors
 
 
+def align_to_background(fastq, background, work_dir, threads=2):
+    """Best background hit per read: (taxon label, alignment score).
+
+    One shared index of every RefSeq viral species, the host and the usual
+    reagent organisms, built once rather than per pathogen. It is kept separate
+    from the small per-pathogen index because 3.6 Gb cannot be rebuilt for
+    every row under review.
+    """
+    index = Path(background["index"])
+    if not Path(str(index) + ".bwt").exists():
+        log.warning("background index %s is not built; skipping the background layer", index)
+        return {}
+    labels = background.get("labels") or {}
+    work_dir = Path(work_dir)
+    sam = work_dir / "background.sam"
+    run(["bwa", "mem", "-t", str(threads), str(index), str(fastq)],
+        stdout=sam, stderr=work_dir / "background.log")
+    best = {}
+    with open(sam) as fh:
+        for line in fh:
+            if line.startswith("@"):
+                continue
+            f = line.rstrip("\n").split("\t")
+            if len(f) < 11 or int(f[1]) & 0x804:
+                continue
+            score = None
+            for t in f[11:]:
+                if t.startswith("AS:i:"):
+                    score = int(t[5:])
+                    break
+            if score is None:
+                continue
+            label = labels.get(f[2], f[2])
+            cur = best.get(f[0])
+            if cur is None or score > cur[1]:
+                best[f[0]] = (label, score)
+    os.remove(sam)
+    return best
+
+
+def load_background(path):
+    """A prebuilt background index plus its sequence-to-taxon labels.
+
+    `path` is the background FASTA that bwa indexed; background.taxa.tsv beside
+    it names each sequence. Without the labels every background hit would be
+    reported as a bare accession.
+    """
+    index = Path(path)
+    labels = {}
+    taxa = index.with_name("background.taxa.tsv")
+    if not taxa.exists():
+        taxa = index.with_suffix(".taxa.tsv")
+    if taxa.exists():
+        with open(taxa) as fh:
+            next(fh, None)
+            for line in fh:
+                f = line.rstrip("\n").split("\t")
+                if len(f) >= 3:
+                    labels[f[0]] = f[2] or f[1] or f[0]
+    log.info("background layer: %s (%d labelled sequences)", index, len(labels))
+    return {"index": index, "labels": labels}
+
+
 def reference_specificity(align_dir, sample_dir, target_tag, work_dir, threads=2,
                           same_taxon_tags=(), tag_labels=None, decoys=(),
-                          tag_taxon=None, margin=0, em_rounds=20):
+                          tag_taxon=None, margin=0, em_rounds=20, background=None):
     """Criterion 7: can these reads be attributed to this taxon?
 
     Not "did they stay put": with sibling species and strain genomes in the
@@ -217,8 +281,6 @@ def reference_specificity(align_dir, sample_dir, target_tag, work_dir, threads=2
              "competitors": "", "reads_by_taxon": "", "reads_by_reference": ""}
     built = build_competitor_index(sample_dir, target_tag, work_dir,
                                    same_taxon_tags=same_taxon_tags, decoys=decoys)
-    if built[0] is None:
-        return dict(blank, competing_best="no competing reference on this sample")
     index, on_target, competitors = built
 
     def described(tags, cap=6):
@@ -268,6 +330,8 @@ def reference_specificity(align_dir, sample_dir, target_tag, work_dir, threads=2
         taxon_of[t] = TARGET
 
     per_read, landed, best_ident = {}, {}, {}
+    background_hits = (align_to_background(fq, background, work_dir, threads=threads)
+                       if background else {})
     with open(sam) as fh:
         for line in fh:
             if line.startswith("@"):
@@ -298,6 +362,16 @@ def reference_specificity(align_dir, sample_dir, target_tag, work_dir, threads=2
                 if alen:
                     ident = 100.0 * (alen - nm) / alen
                     best_ident[f[0]] = max(best_ident.get(f[0], 0.0), ident)
+
+    # Whatever the background offered, as one more competitor per read. A read
+    # that fits an unlisted virus, the host or a reagent organism better than
+    # anything on the priority table now has somewhere true to go.
+    for name, (label, score) in background_hits.items():
+        hits = per_read.setdefault(name, {})
+        key = "bg:" + label
+        if key not in hits or score > hits[key]:
+            hits[key] = score
+        taxon_of[key] = label
 
     for name, hits in per_read.items():
         best_tag = max(hits, key=hits.get)
@@ -346,6 +420,15 @@ def reference_specificity(align_dir, sample_dir, target_tag, work_dir, threads=2
         if v > 0)
     elsewhere = {t: n for t, n in landed.items() if taxon_of.get(t, t) != TARGET}
     best = max(elsewhere, key=elsewhere.get) if elsewhere else ""
+    # The background is a real competitor: every RefSeq viral species, the host
+    # and the reagent organisms were offered, so a taxon with no siblings of
+    # its own is no longer tested against an empty field.
+    bg_taxa = sorted({lab for lab, _ in background_hits.values()})
+    n_competitors = len(competitors) + len(bg_taxa)
+    if bg_taxa:
+        comp_desc = ((comp_desc + "; ") if comp_desc else "") + \
+                    "background: " + "; ".join(bg_taxa[:4]) + \
+                    ("; +%d more" % (len(bg_taxa) - 4) if len(bg_taxa) > 4 else "")
     # Where every read ended up, target first, so a reviewer can see what the
     # reads were weighed against and not only the headline percentage.
     # Keyed by reference tag (<taxid>__<code>__<index>), not by taxon name:
@@ -367,7 +450,7 @@ def reference_specificity(align_dir, sample_dir, target_tag, work_dir, threads=2
             "competing_best": ("%s = %s (%d reads)"
                                % (best, labels.get(best, best), elsewhere[best]))
                               if best else "",
-            "n_competitors": len(competitors),
+            "n_competitors": n_competitors,
             "competitors": comp_desc,
             "reads_by_reference": by_ref}
 
@@ -417,7 +500,8 @@ def decoy_references(taxid, panel_by_taxid, cache_dir, entrez):
 
 
 def review(summary_tsv, out_path, outdir, params, library_sizes=None, threads=2,
-           control_regex=None, panel_by_taxid=None, entrez=None, cache_dir=None):
+           control_regex=None, panel_by_taxid=None, entrez=None, cache_dir=None,
+           background=None):
     """Score every failing priority row; write the review table.
 
     Returns {(sample_id, taxid): {"evidence_verdict": ..., "evidence_reason": ...}}
@@ -498,7 +582,8 @@ def review(summary_tsv, out_path, outdir, params, library_sizes=None, threads=2,
                                              same_taxon_tags=kin, tag_labels=labels,
                                              decoys=decoys, tag_taxon=taxon_of,
                                              margin=params.evidence_score_margin,
-                                             em_rounds=params.evidence_em_rounds)
+                                             em_rounds=params.evidence_em_rounds,
+                                             background=background)
             except PipelineError as exc:
                 log.warning("  specificity check failed: %s", exc)
 

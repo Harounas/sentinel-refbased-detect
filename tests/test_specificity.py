@@ -152,3 +152,42 @@ def test_divergent_lineage_is_judged_against_its_own_clade(tmp_path):
     assert r["pct_identity_best"] > 95
     # ...and the taxon still owns them.
     assert r["pct_target"] == 100.0
+
+
+def test_background_gives_an_unlisted_virus_somewhere_true_to_go(tmp_path):
+    """The case the priority table cannot cover.
+
+    Reads really come from a virus nobody listed. Against the table alone they
+    are attributed to whatever they were aligned against; with the background
+    layer they go to the virus they actually came from.
+    """
+    rng = random.Random(31)
+    listed = _seq(rng, 12000)          # the priority pathogen the reads hit
+    unlisted = _seq(rng, 12000)        # what the reads are really from
+
+    sample = tmp_path / "sample"
+    (sample / "refs").mkdir(parents=True)
+    _fasta(sample / "refs" / "900__LISTED__0.fasta", "listed", listed)
+
+    bg_dir = tmp_path / "bg"
+    bg_dir.mkdir()
+    bg_fa = bg_dir / "background.fasta"
+    _fasta(bg_fa, "NC_999.1", unlisted)
+    (bg_dir / "background.taxa.tsv").write_text(
+        "sequence_id\ttaxid\tname\nNC_999.1\t555\tSome unlisted virus\n")
+    run(["bwa", "index", str(bg_fa)], stderr=bg_dir / "log")
+
+    # A handful of reads from the unlisted virus, plus a few that genuinely
+    # match the listed one, so the comparison is not trivially one-sided.
+    reads = _reads(rng, unlisted, 20, span=10000) + _reads(rng, listed, 5, span=10000)
+    _bam(tmp_path, sample / "refs" / "900__LISTED__0.fasta", reads,
+         sample / "align" / "900__LISTED__0")
+
+    from sentinel_refbased_detect.evidence import load_background
+    r = reference_specificity(sample / "align" / "900__LISTED__0", sample,
+                              "900__LISTED__0", tmp_path / "work",
+                              background=load_background(bg_fa))
+    assert "Some unlisted virus" in r["reads_by_taxon"]
+    assert r["n_competitors"] >= 1
+    # Most reads belong elsewhere, so the listed pathogen must not keep them.
+    assert r["pct_target"] < 50
