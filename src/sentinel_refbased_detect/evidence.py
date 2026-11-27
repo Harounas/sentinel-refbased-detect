@@ -590,8 +590,12 @@ def review(summary_tsv, out_path, outdir, params, library_sizes=None, threads=2,
                              "could explain this signal"
                              % (loudest["sample_id"] if loudest else "", ratio))
 
+        # With nothing to compete, every read is trivially "attributable" and
+        # the criterion would pass while testing nothing. ASFV is the real
+        # case: Asfarviridae holds one genus holding one species, so no sibling
+        # exists anywhere to offer. Say so instead of scoring it.
         spec_ok = None
-        if spec and spec["pct_target"] != "":
+        if spec and spec["pct_target"] != "" and spec.get("n_competitors", 0) > 0:
             spec_ok = _f(spec["pct_target"]) >= params.evidence_min_retained
         specificity_v = score(spec_ok, "specificity",
                               "only %s%% of the reads are attributable to this taxon once "

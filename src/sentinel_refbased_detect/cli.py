@@ -117,7 +117,7 @@ def build_parser():
     sub.add_parser("check", help="check that external tools are installed")
 
     pl = sub.add_parser("panel", help="build the decoy panel used by the specificity check")
-    pl.add_argument("action", choices=["build", "show", "jobs", "shard", "merge"],
+    pl.add_argument("action", choices=["build", "show", "jobs", "shard", "merge", "verify"],
                     help="build: everything in one process. jobs/shard/merge: the three "
                          "steps a workflow scatters over (see wdl/build_pathogen_panel.wdl)")
     pl.add_argument("--kind", choices=["sibling", "strain"], help="shard: which kind")
@@ -173,6 +173,15 @@ def panel_command(args):
 
     out = Path(args.out)
     cache = Path(args.cache_dir) if args.cache_dir else out.parent / "panel_cache"
+
+    if args.action == "verify":
+        setup_logging(cache, args.verbose)
+        target = out if Path(out).exists() and args.out != str(DEFAULT_PANEL_TSV) else DEFAULT_PANEL_TSV
+        rows, missing = panel.verify(target, args.ref_tsv,
+                                     out_path=Path(target).with_name("panel_coverage.tsv"))
+        print("%d priority rows checked; %d with no decoys" % (len(rows), len(missing)))
+        print("report: %s" % Path(target).with_name("panel_coverage.tsv"))
+        return
 
     if args.action == "merge":
         rows = []

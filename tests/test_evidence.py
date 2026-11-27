@@ -78,3 +78,32 @@ def test_annotate_marks_unreviewed_rows(tmp_path):
     # The coverage call itself is never rewritten.
     assert rows["S1"]["detection"] == "not detected"
     assert rows["S2"]["detection"] == "detected"
+
+
+def test_specificity_is_not_scored_when_nothing_competes(tmp_path, monkeypatch):
+    """A pathogen with no relatives, as ASFV has none, must not pass by default.
+
+    Asfarviridae holds one genus holding one species, so no sibling genome
+    exists to offer. Attribution is then trivially 100% and would read as a
+    pass while having tested nothing.
+    """
+    from sentinel_refbased_detect import evidence as ev
+
+    monkeypatch.setattr(ev, "alignment_metrics", lambda *a, **k: {
+        "n_reads": 10, "pct_identity_mean": 99.0, "pct_identity_median": 99.0,
+        "mean_mapq": 60.0, "pct_multimapping": 0.0, "n_distinct_starts": 10,
+        "n_bins_covered": 5, "n_bins_total": 20, "pct_busiest_bin": 30.0,
+        "n_regions_with_reads": 1, "reference_bp": 10000})
+    monkeypatch.setattr(ev, "reference_specificity", lambda *a, **k: {
+        "pct_target": 100.0, "pct_identity_best": 99.0, "n_unique_target": 10,
+        "n_unique_other": 0, "n_ambiguous": 0, "reads_by_taxon": "this taxon:10.0",
+        "competing_best": "", "n_competitors": 0, "competitors": "",
+        "reads_by_reference": ""})
+
+    s = _summary(tmp_path, [_row("S1", taxid="10497", total_unique_reads_mapped="10",
+                                 best_reference="10497__ASFV__0",
+                                 breadth_of_coverage="0.02")])
+    ev.review(s, tmp_path / "rev.tsv", tmp_path, P)
+    r = list(csv.DictReader(open(tmp_path / "rev.tsv"), delimiter="\t"))[0]
+    assert r["pct_reads_attributed_to_target"] == "100.0"
+    assert r["specificity_verdict"] == "not assessable"

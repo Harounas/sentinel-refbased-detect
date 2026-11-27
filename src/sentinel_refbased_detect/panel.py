@@ -131,8 +131,17 @@ def _priority_taxids(ref_tsv):
     return sorted({t for t, _ in _priority_rows(ref_tsv)}, key=int)
 
 
-def siblings_for_genus(group, guarded, entrez, parent, rank, name, max_per_genus=200):
-    """One RefSeq genome per species of this genus that is not a guarded taxon."""
+def siblings_for_genus(group, guarded, entrez, parent, rank, name, max_per_genus=200,
+                       escalate=True):
+    """One RefSeq genome per species of this genus that is not a guarded taxon.
+
+    Some genera hold nothing but priority pathogens. Orthomarburgvirus is
+    Marburg and nothing else; Lentivirus, on this table, is HIV-1 and HIV-2.
+    Excluding the guarded taxa then leaves no siblings at all, and those
+    pathogens would be the only ones in the panel with no competitor to test
+    their reads against. Where that happens the search widens to the family, so
+    Marburg is offered the other filoviruses rather than nothing.
+    """
     gname = name.get(group, group)
     term = "txid%s[Organism:exp] AND srcdb_refseq[PROP] AND 500:3000000[SLEN]" % group
     try:
@@ -158,6 +167,13 @@ def siblings_for_genus(group, guarded, entrez, parent, rank, name, max_per_genus
                      "accessions": ":".join(accs), "role": "sibling",
                      "related_to": ",".join(sorted(guarded, key=int)),
                      "note": "%s of %s; %s" % (rank.get(sp, "species"), gname, how)})
+    if not rows and escalate and rank.get(group) == "genus":
+        family = _ancestor_at(group, parent, rank, "family")
+        if family and family != group:
+            log.info("  no siblings inside %s; widening to family %s",
+                     gname, name.get(family, family))
+            return siblings_for_genus(family, guarded, entrez, parent, rank, name,
+                                      max_per_genus=max_per_genus, escalate=False)
     log.info("  %d sibling species", len(by_species))
     return rows
 
@@ -265,8 +281,8 @@ def strains_for_species(sp, job, recs, entrez, cache_dir, min_identity=0.99,
     cache_dir = Path(cache_dir)
     cache_dir.mkdir(parents=True, exist_ok=True)
     recs = [r for r in recs if r["slen"] > 0]
-    if len(recs) < 2:
-        log.info("  %d genome(s); nothing to cluster", len(recs))
+    if not recs:
+        log.info("  no genomes found")
         return []
 
     by_acc = {r["acc"]: r for r in recs}
@@ -298,14 +314,26 @@ def strains_for_species(sp, job, recs, entrez, cache_dir, min_identity=0.99,
 
     out = []
     for seg, members in sorted(groups.items()):
-        if len(members) < 2:
+        label = ("segment %s" % seg) if seg else "genome"
+        # A species or segment with a single deposit is not a clustering
+        # problem, but it is still the only genome that exists for it. Dropping
+        # it would quietly leave that species, or that segment of it, out of
+        # the panel altogether.
+        if len(members) == 1:
+            acc, seq = members[0]
+            log.info("  %s: 1 sequence; kept as the only genome available", label)
+            out.append({
+                "taxid": sp, "code": _code(sp_name, job.get("code") or "NA"),
+                "name": sp_name, "accessions": acc, "role": "strain",
+                "related_to": ",".join(sorted(set(job["guards"]), key=int)),
+                "note": "%s; %d bp; the only genome available for this taxon"
+                        % (label, len(seq))})
             continue
         clusters = cluster_sequences(members, min_identity=min_identity)
         lo, mid = pairwise_identity(clusters)
         kept, covered = select_diverse(clusters, max_representatives,
                                        min_members=min_members,
                                        coverage_identity=coverage_identity)
-        label = ("segment %s" % seg) if seg else "genome"
         capped = len(kept) >= max_representatives and covered < coverage_identity
         log.info("  %s: %d sequences -> %d cluster(s) at %.0f%% dedup, keeping %d; "
                  "every genome within %.0f%% of a representative%s "
@@ -329,12 +357,21 @@ def strains_for_species(sp, job, recs, entrez, cache_dir, min_identity=0.99,
 
 
 def write_panel(rows, out_path):
-    seen, unique = set(), []
+    # One row per (genome, role, taxon), with the guards merged rather than the
+    # duplicate dropped. The same genome is often reached from two genera, and
+    # keeping only the first copy would silently take its decoy away from every
+    # priority taxon but one.
+    merged, order = {}, []
     for r in rows:
-        key = (r["accessions"], r["role"])
-        if key not in seen:
-            seen.add(key)
-            unique.append(r)
+        key = (r["accessions"], r["role"], r.get("taxid", ""))
+        if key not in merged:
+            merged[key] = dict(r)
+            order.append(key)
+        else:
+            guards = set(filter(None, (merged[key].get("related_to") or "").split(",")))
+            guards |= set(filter(None, (r.get("related_to") or "").split(",")))
+            merged[key]["related_to"] = ",".join(sorted(guards, key=int))
+    unique = [merged[k] for k in order]
     with open(out_path, "w", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=PANEL_COLS, delimiter="\t", lineterminator="\n")
         w.writeheader()
@@ -404,3 +441,41 @@ def build(ref_tsv, out_path, entrez, cache_dir, kinds=("sibling",), taxdump=None
                               min_identity=min_identity, max_candidates=max_candidates,
                               coverage_identity=coverage_identity)
     return write_panel(rows, out_path)
+
+
+def verify(panel_path, ref_tsv, out_path=None):
+    """Check every priority pathogen actually has decoys, and say which do not.
+
+    Redundancy removal, dedup and caps all shrink the panel, and a pathogen can
+    lose its decoys at any of those steps without anything failing. This is the
+    check that the shrinking did not go too far: one row per priority taxon,
+    with what survived for it.
+    """
+    by_taxid = load_panel(panel_path)
+    rows, missing = [], []
+    for taxid, code in _priority_rows(ref_tsv):
+        guarding = by_taxid.get(taxid, [])
+        sib = [r for r in guarding if r.get("role") == "sibling"]
+        strain = [r for r in guarding if r.get("role") == "strain"]
+        status = ("ok" if sib else
+                  ("strain genomes only" if strain else "NO DECOYS"))
+        if not sib and not strain:
+            missing.append((taxid, code))
+        rows.append({"taxid": taxid, "code": code, "sibling_species": len(sib),
+                     "strain_representatives": len(strain), "status": status,
+                     "examples": "; ".join(sorted({r["name"] for r in sib})[:3])})
+
+    if out_path:
+        with open(out_path, "w", newline="") as fh:
+            w = csv.DictWriter(fh, delimiter="\t", lineterminator="\n",
+                               fieldnames=["taxid", "code", "sibling_species",
+                                           "strain_representatives", "status", "examples"])
+            w.writeheader()
+            w.writerows(rows)
+
+    ok = sum(1 for r in rows if r["status"] == "ok")
+    log.info("%d of %d priority rows have sibling decoys; %d have none at all",
+             ok, len(rows), len(missing))
+    for taxid, code in missing[:20]:
+        log.info("  no decoys: %s (%s)", code, taxid)
+    return rows, missing

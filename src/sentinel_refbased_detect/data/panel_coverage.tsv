@@ -1,0 +1,356 @@
+taxid	code	sibling_species	strain_representatives	status	examples
+208893	RSV-A	3	0	ok	Orthopneumovirus bovis; Orthopneumovirus hominis; Orthopneumovirus muris
+208895	RSV-B	3	0	ok	Orthopneumovirus bovis; Orthopneumovirus hominis; Orthopneumovirus muris
+11137	HCoV-229E	22	0	ok	Alphacoronavirus ferrumequini; Alphacoronavirus hipposideri; Alphacoronavirus miniopteri
+290028	HCoV-HKU1	11	0	ok	Bat coronavirus BM48-31/BGR/2008; Betacoronavirus cororeum; Betacoronavirus erinacei
+277944	HCoV-NL63	22	0	ok	Alphacoronavirus ferrumequini; Alphacoronavirus hipposideri; Alphacoronavirus miniopteri
+31631	HCoV-OC43	11	0	ok	Bat coronavirus BM48-31/BGR/2008; Betacoronavirus cororeum; Betacoronavirus erinacei
+1335626	MERS-CoV	11	0	ok	Bat coronavirus BM48-31/BGR/2008; Betacoronavirus cororeum; Betacoronavirus erinacei
+2901879	SARS-CoV	11	0	ok	Bat coronavirus BM48-31/BGR/2008; Betacoronavirus cororeum; Betacoronavirus erinacei
+2697049	SARS-CoV-2	11	0	ok	Bat coronavirus BM48-31/BGR/2008; Betacoronavirus cororeum; Betacoronavirus erinacei
+641809	A	1	0	ok	Alphainfluenzavirus influenzae
+488241	A	1	0	ok	Alphainfluenzavirus influenzae
+335341	A	1	0	ok	Alphainfluenzavirus influenzae
+119210	A	1	0	ok	Alphainfluenzavirus influenzae
+93838	A	1	0	ok	Alphainfluenzavirus influenzae
+93838	A	1	0	ok	Alphainfluenzavirus influenzae
+1332244	A	1	0	ok	Alphainfluenzavirus influenzae
+130760	A	1	0	ok	Alphainfluenzavirus influenzae
+518987	B	20	0	ok	Alphainfluenzavirus influenzae; Deltainfluenzavirus influenzae; Gammainfluenzavirus influenzae
+11553	C	20	0	ok	Alphainfluenzavirus influenzae; Betainfluenzavirus influenzae; Deltainfluenzavirus influenzae
+162145	HMPV	1	0	ok	Metapneumovirus avis
+12730	HPIV-1	7	0	ok	Respirovirus bovis; Respirovirus caprae; Respirovirus henanense
+2560525	HPIV-2	7	0	ok	Bat mumps orthorubulavirus; Orthorubulavirus mammalis; Orthorubulavirus mapueraense
+11216	HPIV-3	7	0	ok	Respirovirus bovis; Respirovirus caprae; Respirovirus henanense
+11224	HPIV-4	7	0	ok	Bat mumps orthorubulavirus; Orthorubulavirus mammalis; Orthorubulavirus mapueraense
+129875	HAdV-A	44	0	ok	Eidolon helvum adenovirus; Guinea pig adenovirus; Mastadenovirus alienum
+565302	HAdV-B1	44	0	ok	Eidolon helvum adenovirus; Guinea pig adenovirus; Mastadenovirus alienum
+565303	HAdV-B2	44	0	ok	Eidolon helvum adenovirus; Guinea pig adenovirus; Mastadenovirus alienum
+10519	HAdV-7	44	0	ok	Eidolon helvum adenovirus; Guinea pig adenovirus; Mastadenovirus alienum
+198503	SAdV-21	44	0	ok	Eidolon helvum adenovirus; Guinea pig adenovirus; Mastadenovirus alienum
+129951	HAdV-C	44	0	ok	Eidolon helvum adenovirus; Guinea pig adenovirus; Mastadenovirus alienum
+10533	HAdV-1	44	0	ok	Eidolon helvum adenovirus; Guinea pig adenovirus; Mastadenovirus alienum
+130310	HAdV-D	44	0	ok	Eidolon helvum adenovirus; Guinea pig adenovirus; Mastadenovirus alienum
+130308	HAdV-E	44	0	ok	Eidolon helvum adenovirus; Guinea pig adenovirus; Mastadenovirus alienum
+130309	HAdV-F	44	0	ok	Eidolon helvum adenovirus; Guinea pig adenovirus; Mastadenovirus alienum
+536079	HAdV-G	44	0	ok	Eidolon helvum adenovirus; Guinea pig adenovirus; Mastadenovirus alienum
+28285	HAdV-5	44	0	ok	Eidolon helvum adenovirus; Guinea pig adenovirus; Mastadenovirus alienum
+11053	DENV-1	68	0	ok	Aedes flavivirus; Chaoyang virus; Culex flavivirus
+11060	DENV-2	68	0	ok	Aedes flavivirus; Chaoyang virus; Culex flavivirus
+11069	DENV-3	68	0	ok	Aedes flavivirus; Chaoyang virus; Culex flavivirus
+11070	DENV-4	68	0	ok	Aedes flavivirus; Chaoyang virus; Culex flavivirus
+10298	HSV-1	13	0	ok	Simplexvirus atelinealpha1; Simplexvirus bovinealpha2; Simplexvirus cercopithecinealpha2
+10310	HSV-2	13	0	ok	Simplexvirus atelinealpha1; Simplexvirus bovinealpha2; Simplexvirus cercopithecinealpha2
+10335	VZV	19	0	ok	Equid herpesvirus 6; Varicellovirus bovinealpha1; Varicellovirus bovinealpha5
+12509	EBV	9	0	ok	Lymphocryptovirus callitrichinegamma3; Lymphocryptovirus gorillinegamma1; Lymphocryptovirus humangamma4
+10359	CMV	10	0	ok	Cynomolgus cytomegalovirus; Cytomegalovirus aotinebeta1; Cytomegalovirus cebinebeta1
+54290	GBV-C	11	0	ok	Norway rat pegivirus; Pegivirus caballi; Pegivirus carolliae
+186538	Ebola virus	3	0	ok	Orthoebolavirus bombaliense; Orthoebolavirus bundibugyoense; Orthoebolavirus restonense
+186538	Ebola virus	3	0	ok	Orthoebolavirus bombaliense; Orthoebolavirus bundibugyoense; Orthoebolavirus restonense
+186538	Ebola virus	3	0	ok	Orthoebolavirus bombaliense; Orthoebolavirus bundibugyoense; Orthoebolavirus restonense
+1891187	Ebola virus	3	0	ok	Orthoebolavirus bombaliense; Orthoebolavirus bundibugyoense; Orthoebolavirus restonense
+128951	Ebola virus	3	0	ok	Orthoebolavirus bombaliense; Orthoebolavirus bundibugyoense; Orthoebolavirus restonense
+128952	Ebola virus	3	0	ok	Orthoebolavirus bombaliense; Orthoebolavirus bundibugyoense; Orthoebolavirus restonense
+186540	Sudan virus	3	0	ok	Orthoebolavirus bombaliense; Orthoebolavirus bundibugyoense; Orthoebolavirus restonense
+186540	Sudan virus	3	0	ok	Orthoebolavirus bombaliense; Orthoebolavirus bundibugyoense; Orthoebolavirus restonense
+2169701	ONN	30	0	ok	Alphavirus aura; Alphavirus barmah; Alphavirus bebaru
+3052518	CCHF	41	0	ok	Orthonairovirus abuhammadense; Orthonairovirus abuminaense; Orthonairovirus amblyommae
+3052518	CCHF	41	0	ok	Orthonairovirus abuhammadense; Orthonairovirus abuminaense; Orthonairovirus amblyommae
+3052518	CCHF	41	0	ok	Orthonairovirus abuhammadense; Orthonairovirus abuminaense; Orthonairovirus amblyommae
+3052518	CCHF	41	0	ok	Orthonairovirus abuhammadense; Orthonairovirus abuminaense; Orthonairovirus amblyommae
+3052518	CCHF	41	0	ok	Orthonairovirus abuhammadense; Orthonairovirus abuminaense; Orthonairovirus amblyommae
+3052518	CCHF	41	0	ok	Orthonairovirus abuhammadense; Orthonairovirus abuminaense; Orthonairovirus amblyommae
+3052518	CCHF	41	0	ok	Orthonairovirus abuhammadense; Orthonairovirus abuminaense; Orthonairovirus amblyommae
+3052518	CCHF	41	0	ok	Orthonairovirus abuhammadense; Orthonairovirus abuminaense; Orthonairovirus amblyommae
+11082	WNV	68	0	ok	Aedes flavivirus; Chaoyang virus; Culex flavivirus
+11082	WNV	68	0	ok	Aedes flavivirus; Chaoyang virus; Culex flavivirus
+11082	WNV	68	0	ok	Aedes flavivirus; Chaoyang virus; Culex flavivirus
+11082	WNV	68	0	ok	Aedes flavivirus; Chaoyang virus; Culex flavivirus
+11089	YFV	68	0	ok	Aedes flavivirus; Chaoyang virus; Culex flavivirus
+11089	YFV	68	0	ok	Aedes flavivirus; Chaoyang virus; Culex flavivirus
+11089	YFV	68	0	ok	Aedes flavivirus; Chaoyang virus; Culex flavivirus
+11089	YFV	68	0	ok	Aedes flavivirus; Chaoyang virus; Culex flavivirus
+11089	YFV	68	0	ok	Aedes flavivirus; Chaoyang virus; Culex flavivirus
+11089	YFV	68	0	ok	Aedes flavivirus; Chaoyang virus; Culex flavivirus
+11089	YFV	68	0	ok	Aedes flavivirus; Chaoyang virus; Culex flavivirus
+208726	HAV	10	0	ok	Hepatovirus ahepa; Hepatovirus bephopi; Hepatovirus cemanavi
+208726	HAV	10	0	ok	Hepatovirus ahepa; Hepatovirus bephopi; Hepatovirus cemanavi
+208726	HAV	10	0	ok	Hepatovirus ahepa; Hepatovirus bephopi; Hepatovirus cemanavi
+208726	HAV	10	0	ok	Hepatovirus ahepa; Hepatovirus bephopi; Hepatovirus cemanavi
+208726	HAV	10	0	ok	Hepatovirus ahepa; Hepatovirus bephopi; Hepatovirus cemanavi
+208726	HAV	10	0	ok	Hepatovirus ahepa; Hepatovirus bephopi; Hepatovirus cemanavi
+208726	HAV	10	0	ok	Hepatovirus ahepa; Hepatovirus bephopi; Hepatovirus cemanavi
+208726	HAV	10	0	ok	Hepatovirus ahepa; Hepatovirus bephopi; Hepatovirus cemanavi
+208726	HAV	10	0	ok	Hepatovirus ahepa; Hepatovirus bephopi; Hepatovirus cemanavi
+208726	HAV	10	0	ok	Hepatovirus ahepa; Hepatovirus bephopi; Hepatovirus cemanavi
+208726	HAV	10	0	ok	Hepatovirus ahepa; Hepatovirus bephopi; Hepatovirus cemanavi
+208726	HAV	10	0	ok	Hepatovirus ahepa; Hepatovirus bephopi; Hepatovirus cemanavi
+10407	HBV	14	0	ok	Orthohepadnavirus bassarisci; Orthohepadnavirus felisdomestici; Orthohepadnavirus lagothricis
+41856	HCV-1	18	0	ok	Bat hepacivirus; Equine hepacivirus; Hepacivirus P
+40271	HCV-2	18	0	ok	Bat hepacivirus; Equine hepacivirus; Hepacivirus P
+356114	HCV-3	18	0	ok	Bat hepacivirus; Equine hepacivirus; Hepacivirus P
+33745	HCV-4	18	0	ok	Bat hepacivirus; Equine hepacivirus; Hepacivirus P
+33746	HCV-5	18	0	ok	Bat hepacivirus; Equine hepacivirus; Hepacivirus P
+42182	HCV-6	18	0	ok	Bat hepacivirus; Equine hepacivirus; Hepacivirus P
+1544901	HCV-7	18	0	ok	Bat hepacivirus; Equine hepacivirus; Hepacivirus P
+11089	YFV	68	0	ok	Aedes flavivirus; Chaoyang virus; Culex flavivirus
+3087233	ZIKV	68	0	ok	Aedes flavivirus; Chaoyang virus; Culex flavivirus
+64320	ZIKV	68	0	ok	Aedes flavivirus; Chaoyang virus; Culex flavivirus
+3052310	LASV	41	0	ok	Mammarenavirus alashanense; Mammarenavirus allpahuayoense; Mammarenavirus amapariense
+3052310	LASV	41	0	ok	Mammarenavirus alashanense; Mammarenavirus allpahuayoense; Mammarenavirus amapariense
+3052310	LASV	41	0	ok	Mammarenavirus alashanense; Mammarenavirus allpahuayoense; Mammarenavirus amapariense
+3052310	LASV	41	0	ok	Mammarenavirus alashanense; Mammarenavirus allpahuayoense; Mammarenavirus amapariense
+3052310	LASV	41	0	ok	Mammarenavirus alashanense; Mammarenavirus allpahuayoense; Mammarenavirus amapariense
+619591	MPXV	11	0	ok	Orthopoxvirus abatinomacacapox; Orthopoxvirus akhmetapox; Orthopoxvirus camelpox
+10244	MPXV	11	0	ok	Orthopoxvirus abatinomacacapox; Orthopoxvirus akhmetapox; Orthopoxvirus camelpox
+10244	MPXV	11	0	ok	Orthopoxvirus abatinomacacapox; Orthopoxvirus akhmetapox; Orthopoxvirus camelpox
+10244	MPXV	11	0	ok	Orthopoxvirus abatinomacacapox; Orthopoxvirus akhmetapox; Orthopoxvirus camelpox
+10244	MPXV	11	0	ok	Orthopoxvirus abatinomacacapox; Orthopoxvirus akhmetapox; Orthopoxvirus camelpox
+10244	MPXV	11	0	ok	Orthopoxvirus abatinomacacapox; Orthopoxvirus akhmetapox; Orthopoxvirus camelpox
+10244	MPXV	11	0	ok	Orthopoxvirus abatinomacacapox; Orthopoxvirus akhmetapox; Orthopoxvirus camelpox
+10244	MPXV	11	0	ok	Orthopoxvirus abatinomacacapox; Orthopoxvirus akhmetapox; Orthopoxvirus camelpox
+10244	MPXV	11	0	ok	Orthopoxvirus abatinomacacapox; Orthopoxvirus akhmetapox; Orthopoxvirus camelpox
+10244	MPXV	11	0	ok	Orthopoxvirus abatinomacacapox; Orthopoxvirus akhmetapox; Orthopoxvirus camelpox
+10244	MPXV	11	0	ok	Orthopoxvirus abatinomacacapox; Orthopoxvirus akhmetapox; Orthopoxvirus camelpox
+10244	MPXV	11	0	ok	Orthopoxvirus abatinomacacapox; Orthopoxvirus akhmetapox; Orthopoxvirus camelpox
+10244	MPXV	11	0	ok	Orthopoxvirus abatinomacacapox; Orthopoxvirus akhmetapox; Orthopoxvirus camelpox
+10244	MPXV	11	0	ok	Orthopoxvirus abatinomacacapox; Orthopoxvirus akhmetapox; Orthopoxvirus camelpox
+10244	MPXV	11	0	ok	Orthopoxvirus abatinomacacapox; Orthopoxvirus akhmetapox; Orthopoxvirus camelpox
+10244	MPXV	11	0	ok	Orthopoxvirus abatinomacacapox; Orthopoxvirus akhmetapox; Orthopoxvirus camelpox
+573824		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+185900		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+1418033		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+992230		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+150904		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+318567		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+2884179		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+2870393		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+2870394		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+2870395		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+306588		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+306586		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+297248		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+306587		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+2760809		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+2487724		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+1435148		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+138948		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+31704		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+582384		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+2487725		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+103908		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+74561		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+82639		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+40280		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+12074		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+200154		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+47506		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+172038		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+222887		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+46018		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+47501		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+47502		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+47503		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+47504		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+47505		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+47507		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+35294		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+47508		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+47509		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+47510		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+45101		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+47511		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+45999		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+47512		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+47516		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+47513		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+47514		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+47515		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+35295		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+12062		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+171720		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+282345		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+2760813		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+318563		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+318564		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+318565		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+318566		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+318568		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+318569		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+318570		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+318571		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+325446		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+408681		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+12067		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+325447		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+1442164		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+1248136		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+2760811		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+2760812		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+12071		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+12072		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+12073		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+35293		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+12078		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+103915		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+2650411		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+42779		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+42770		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+42772		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+42775		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+42778		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+42782		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+42783		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+12069		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+12083		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+1295563		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+2760818		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+861519		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+2760819		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+1134340		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+2749421		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+2760820		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+12086		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+2691036		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+12081		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+42789		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+42789		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+12090		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+2015550		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+1141754		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+185907		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+185909		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+185928		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+185894		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+185929		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+185906		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+44131		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+12135		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+185892		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+185910		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+185918		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+185905		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+185931		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+185939		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+147673		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+167324		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+185913		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+147672		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+167322		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+185930		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+185915		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+185901		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+2777141		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+39767		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+147684		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+185897		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+185922		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+147685		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+185941		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+573824		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+185890		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+185893		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+147674		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+185916		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+185891		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+147711		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+1219381		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+1033850		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+147711		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+147711		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+2777144		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+31708		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+12132		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+12130		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+44130		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+147681		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+167329		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+147679		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+185926		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+185889		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+185900		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+147680		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+147677		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+167327		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+147714		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+185899		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+147683		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+147677		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+147678		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+44137		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+185933		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+185936		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+167328		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+185938		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+167325		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+167326		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+167330		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+185945		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+2777136		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+2777137		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+2777139		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+2777138		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+12131		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+1219379		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+1219416		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+1219376		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+1219377		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+2045077		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+1418031		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+1219378		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+1240004		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+1219380		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+1220265		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+1219419		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+1418033		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+463676		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+2777131		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+463676		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+463676		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+463676		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+463676		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+463676		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+2777135		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+463676		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+463676		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+463676		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+463676		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+1604833		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+463676		14	0	ok	Enterovirus betacoxsackie; Enterovirus coxsackiepol; Enterovirus deconjuncti
+689403		37	0	ok	Bat bocavirus; Bocaparvovirus carnivoran1; Bocaparvovirus carnivoran2
+573977		37	0	ok	Bat bocavirus; Bocaparvovirus carnivoran1; Bocaparvovirus carnivoran2
+638313		37	0	ok	Bat bocavirus; Bocaparvovirus carnivoran1; Bocaparvovirus carnivoran2
+1511883		37	0	ok	Bat bocavirus; Bocaparvovirus carnivoran1; Bocaparvovirus carnivoran2
+10798		7	0	ok	Erythroparvovirus pinniped1; Erythroparvovirus primate2; Erythroparvovirus primate3
+289365		9	0	ok	Tetraparvovirus chiropteran1; Tetraparvovirus didelphimorph1; Tetraparvovirus primate1
+2560602		7	0	ok	Bat mumps orthorubulavirus; Orthorubulavirus mammalis; Orthorubulavirus mapueraense
+11234		8	0	ok	Morbillivirus canis; Morbillivirus ceti; Morbillivirus felis
+11041		2	0	ok	Rubivirus ruteetense; Rubivirus strelense
+376849		2	0	ok	Capripoxvirus goatpox; Capripoxvirus sheeppox
+10258		3	0	ok	Parapoxvirus bovinestomatitis; Parapoxvirus reddeerpox; Parapoxvirus sealpox
+129726		3	0	ok	Parapoxvirus bovinestomatitis; Parapoxvirus reddeerpox; Parapoxvirus sealpox
+687348		26	0	ok	Alphatorquevirus cerco1; Alphatorquevirus cerco2; Alphatorquevirus cerco3
+11676	HIV	10	0	ok	Lentivirus bovimdef; Lentivirus bovjem; Lentivirus capartenc
+10497	ASFV	0	0	NO DECOYS	
+11303	BEFV	13	0	ok	Ephemerovirus adelaide; Ephemerovirus berrimah; Ephemerovirus guangdong
+40051	BTV	22	0	ok	Guangxi orbivirus; Mobuck virus; Orbivirus SX-2017a
+37124	CHIKV	30	0	ok	Alphavirus aura; Alphavirus barmah; Alphavirus bebaru
+11096	CSFV	17	0	ok	Norway rat pestivirus; Orthopestivirus antilocaprae; Orthopestivirus australiaense
+12110	FMDV	4	0	ok	Aphthovirus bogeli; Aphthovirus burrowsi; Aphthovirus reedi
+291484	HEV	7	0	ok	Avihepevirus magniiecur; Chirohepevirus eptesici; Paslahepevirus balayani
+3052223	HeV	3	0	ok	Henipavirus angavokelyense; Henipavirus cedarense; Henipavirus ghanaense
+3052314	LUJV	41	0	ok	Mammarenavirus alashanense; Mammarenavirus allpahuayoense; Mammarenavirus amapariense
+3052505	MARV	14	0	ok	Cuevavirus lloviuense; Dianlovirus menglaense; Oblavirus percae
+59301	MAYV	30	0	ok	Alphavirus aura; Alphavirus barmah; Alphavirus bebaru
+10279	MOCV	58	0	ok	Alphaentomopoxvirus acuprea; Avipoxvirus canarypox; Avipoxvirus flamingopox
+2560319	NDV	8	0	ok	Orthoavulavirus borisense; Orthoavulavirus italiense; Orthoavulavirus japanense
+3052225	NiV	3	0	ok	Henipavirus angavokelyense; Henipavirus cedarense; Henipavirus ghanaense
+11983	NoV-GI	1	0	ok	Marmot norovirus
+3052429	OROV	67	0	ok	Orthobunyavirus abrasense; Orthobunyavirus acaraense; Orthobunyavirus achiotei
+3052343	PPRV	8	0	ok	Morbillivirus canis; Morbillivirus ceti; Morbillivirus felis
+11292	RABV	18	0	ok	Lyssavirus aravan; Lyssavirus australis; Lyssavirus bokeloh
+28875	RVA	11	0	ok	Bat rotavirus; Rotavirus aspergastroenteritidis; Rotavirus betagastroenteritidis
+3052676	RVFV	64	0	ok	Phlebovirus adanaense; Phlebovirus aguacateense; Phlebovirus alcubeense
+3052498	SEOV	37	0	ok	Hantavirus Z10; Orthohantavirus andesense; Orthohantavirus asamaense
+64286	USUV	68	0	ok	Aedes flavivirus; Chaoyang virus; Culex flavivirus
+186541	Tai Forest virus	3	0	ok	Orthoebolavirus bombaliense; Orthoebolavirus bundibugyoense; Orthoebolavirus restonense

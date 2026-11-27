@@ -240,6 +240,32 @@ sign that anything was missing. `panel_diversity.tsv` sorts species by the cover
 actually reached, worst first, and marks the ones that hit the cap — those are the species
 to give a higher `max_representatives`.
 
+**Every pathogen keeps at least one decoy.** Each step after the genomes are fetched makes
+the panel smaller — clustering, the cap, dedup across shards — and a pathogen can lose its
+decoys at any of them without anything failing. Three places where that was happening, and
+what each does now:
+
+| Where a virus could vanish | What happens instead |
+|---|---|
+| A genus holding **only** priority species, such as Orthomarburgvirus (Marburg alone) or Lentivirus (HIV-1 and HIV-2): excluding the guarded taxa left nothing | The search widens to the family, so Marburg is offered the other filoviruses |
+| A species or a **segment with a single deposit** was skipped as "nothing to cluster" | A lone genome is kept: it is not a clustering problem, it is the only genome that exists |
+| Dedup across shards kept the **first copy** of a genome reached from two genera | Duplicate rows are merged and their guard lists combined, so neither taxon loses the decoy |
+
+```bash
+sentinel-detect panel verify     # one row per priority pathogen: decoys found, or NO DECOYS
+```
+
+`panel_coverage.tsv` lists every priority row with how many sibling species and strain
+representatives survived for it. Run it after any rebuild: it is the check that the
+shrinking stopped short of removing something. The bundled panel stands at **858 genomes
+covering 354 of the 355 priority rows**.
+
+The one exception is real and not a bug: **African swine fever virus** has no siblings
+anywhere, because *Asfarviridae* holds a single genus holding a single species. Where
+nothing can compete, the specificity criterion reports `not assessable` rather than
+passing — a pathogen with no relatives must not score a free pass on a test that had
+nothing to test it against. For ASFV the strain layer is the only decoy available.
+
 **Lone outliers cannot displace a real lineage.** Furthest-first selection reaches for
 whatever is most unlike everything else, which is exactly what a misannotated, chimeric or
 heavily-N'd deposit looks like. A cluster therefore needs `--min-cluster-members`
