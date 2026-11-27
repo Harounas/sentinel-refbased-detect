@@ -175,6 +175,20 @@ Specificity treats references of the **same species** as on-target: three adenov
 references trading reads among themselves says nothing about whether the sequence is
 adenovirus. What matters is whether it is distinguishable from other taxa.
 
+The review records what the reads were weighed against, not just the headline percentage:
+
+| Column | Example |
+|---|---|
+| `n_competing_references` | `2` |
+| `competing_references_tested` | `Human mastadenovirus C; Human adenovirus 5` |
+| `reads_by_reference` | `10533__HAdV-1__0 [target]:3;129951__HAdV-C__0 [other taxon]:7;28285__HAdV-5__0 [other taxon]:2` |
+| `competing_best_reference` | `129951__HAdV-C__0 = Human mastadenovirus C (7 reads)` |
+
+`reads_by_reference` is keyed by reference tag (`<taxid>__<code>__<index>`), because
+several references of one species share a name and the question is which reference each
+read preferred. `n_competing_references` of `0` means every other reference offered was
+of the same taxon, so nothing genuinely competed.
+
 A criterion that cannot be judged, such as controls on a run that has none, is recorded
 as `not assessable` and left out of the tally. The overall `evidence_verdict` is:
 

@@ -54,7 +54,8 @@ REVIEW_COLS = [
     "background_verdict",
     # 7 reference specificity
     "n_reads_retained_on_target", "pct_reads_retained_on_target",
-    "competing_best_reference", "specificity_verdict",
+    "n_competing_references", "competing_references_tested",
+    "reads_by_reference", "competing_best_reference", "specificity_verdict",
     # overall
     "criteria_passed", "criteria_assessable", "evidence_verdict", "evidence_reason",
 ]
@@ -159,7 +160,7 @@ def build_competitor_index(sample_dir, target_tag, work_dir, same_taxon_tags=())
     refs = sorted(p for p in Path(sample_dir, "refs").glob("*.fasta")
                   if p.name[:-len(".fasta")] != target_tag)
     if not refs:
-        return None, {}
+        return None, {}, []
     work_dir = Path(work_dir)
     work_dir.mkdir(parents=True, exist_ok=True)
     combined = work_dir / "competitors.fasta"
@@ -185,7 +186,9 @@ def build_competitor_index(sample_dir, target_tag, work_dir, same_taxon_tags=())
             for line in fh:
                 if line.startswith(">"):
                     on_target.add("%s|%s" % (tag, line[1:].split()[0]))
-    return combined, on_target
+    competitors = [p.name[:-len(".fasta")] for p in refs
+                   if p.name[:-len(".fasta")] not in set(same_taxon_tags)]
+    return combined, on_target, competitors
 
 
 def reference_specificity(align_dir, sample_dir, target_tag, work_dir, threads=2,
@@ -196,11 +199,28 @@ def reference_specificity(align_dir, sample_dir, target_tag, work_dir, threads=2
     bam = align_dir / "unique.bam"
     if not bam.exists():
         return None
-    index, on_target = build_competitor_index(sample_dir, target_tag, work_dir,
-                                              same_taxon_tags=same_taxon_tags)
-    if index is None:
-        return {"n_retained": "", "pct_retained": "", "competing_best": "no competing reference"}
+    labels = tag_labels or {}
+    blank = {"n_retained": "", "pct_retained": "", "competing_best": "",
+             "n_competitors": 0, "competitors": "", "reads_by_reference": ""}
+    built = build_competitor_index(sample_dir, target_tag, work_dir,
+                                   same_taxon_tags=same_taxon_tags)
+    if built[0] is None:
+        return dict(blank, competing_best="no competing reference on this sample")
+    index, on_target, competitors = built
 
+    def described(tags, cap=6):
+        """Name the references, by taxon rather than by file tag."""
+        names, seen = [], set()
+        for t in tags:
+            nm = labels.get(t, t)
+            if nm not in seen:
+                seen.add(nm)
+                names.append(nm)
+        if len(names) > cap:
+            return "; ".join(names[:cap]) + "; +%d more" % (len(names) - cap)
+        return "; ".join(names)
+
+    comp_desc = described(competitors)
     work_dir.mkdir(parents=True, exist_ok=True)
     fq = work_dir / ("%s.reads.fastq" % target_tag)
     logf = work_dir / "specificity.log"
@@ -208,12 +228,12 @@ def reference_specificity(align_dir, sample_dir, target_tag, work_dir, threads=2
     # single-end, so pairing does not matter and must not reach the console.
     run(["samtools", "fastq", "-n", bam], stdout=fq, stderr=logf)
     if not os.path.getsize(fq):
-        return {"n_retained": 0, "pct_retained": "", "competing_best": ""}
+        return dict(blank, n_retained=0, n_competitors=len(competitors), competitors=comp_desc)
 
     sam = work_dir / ("%s.competitors.sam" % target_tag)
     run(["bwa", "mem", "-t", str(threads), index, fq], stdout=sam, stderr=logf)
     kept = moved = 0
-    elsewhere = {}
+    elsewhere, landed = {}, {}
     with open(sam) as fh:
         for line in fh:
             if line.startswith("@"):
@@ -222,20 +242,35 @@ def reference_specificity(align_dir, sample_dir, target_tag, work_dir, threads=2
             flag = int(f[1])
             if flag & 0x904:            # secondary, supplementary or unmapped
                 continue
+            tag = f[2].split("|")[0]
+            landed[tag] = landed.get(tag, 0) + 1
             if f[2] in on_target:
                 kept += 1
             else:
                 moved += 1
-                tag = f[2].split("|")[0]
                 elsewhere[tag] = elsewhere.get(tag, 0) + 1
     os.remove(sam)
     os.remove(fq)
     total = kept + moved
     best = max(elsewhere, key=elsewhere.get) if elsewhere else ""
-    label = (tag_labels or {}).get(best, best)
+    # Where every read ended up, target first, so a reviewer can see what the
+    # reads were weighed against and not only the headline percentage.
+    # Keyed by reference tag (<taxid>__<code>__<index>), not by taxon name:
+    # several references of one species share a name, and the point here is
+    # which reference each read preferred.
+    by_ref = ";".join(
+        "%s%s:%d" % (t, " [target]" if t == target_tag else
+                     (" [same taxon]" if t in set(same_taxon_tags) else " [other taxon]"), n)
+        for t, n in sorted(landed.items(),
+                           key=lambda kv: (kv[0] != target_tag, -kv[1], kv[0])))
     return {"n_retained": kept,
             "pct_retained": round(100.0 * kept / total, 2) if total else "",
-            "competing_best": ("%s (%d reads)" % (label, elsewhere[best])) if best else ""}
+            "competing_best": ("%s = %s (%d reads)"
+                               % (best, labels.get(best, best), elsewhere[best]))
+                              if best else "",
+            "n_competitors": len(competitors),
+            "competitors": comp_desc,
+            "reads_by_reference": by_ref}
 
 
 def _f(value, default=0.0):
@@ -462,6 +497,9 @@ def review(summary_tsv, out_path, outdir, params, library_sizes=None, threads=2,
             "background_verdict": background_v,
             "n_reads_retained_on_target": spec["n_retained"] if spec else "",
             "pct_reads_retained_on_target": spec["pct_retained"] if spec else "",
+            "n_competing_references": spec["n_competitors"] if spec else "",
+            "competing_references_tested": spec["competitors"] if spec else "",
+            "reads_by_reference": spec["reads_by_reference"] if spec else "",
             "competing_best_reference": spec["competing_best"] if spec else "",
             "specificity_verdict": specificity_v,
             "criteria_passed": passed, "criteria_assessable": assessable,
