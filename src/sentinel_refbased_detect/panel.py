@@ -197,8 +197,9 @@ def build_siblings(ref_tsv, entrez, dmp_dir, max_per_genus=200):
     return rows
 
 
-def build_strains(ref_tsv, entrez, dmp_dir, cache_dir, min_identity=0.95,
-                  max_candidates=300, max_representatives=12):
+def build_strains(ref_tsv, entrez, dmp_dir, cache_dir, min_identity=0.99,
+                  max_candidates=300, max_representatives=12,
+                  coverage_identity=0.90, min_members=2):
     """Strain genomes of each priority species, clustered to representatives."""
     parent, rank, name = _taxonomy(dmp_dir)
     cache_dir = Path(cache_dir)
@@ -236,12 +237,15 @@ def build_strains(ref_tsv, entrez, dmp_dir, cache_dir, min_identity=0.95,
             continue
         rows += strains_for_species(sp, job, recs, entrez, cache_dir,
                                     min_identity=min_identity,
-                                    max_representatives=max_representatives)
+                                    max_representatives=max_representatives,
+                                    coverage_identity=coverage_identity,
+                                    min_members=min_members)
     return rows
 
 
-def strains_for_species(sp, job, recs, entrez, cache_dir, min_identity=0.95,
-                        max_representatives=12):
+def strains_for_species(sp, job, recs, entrez, cache_dir, min_identity=0.99,
+                        max_representatives=12, coverage_identity=0.90,
+                        min_members=2):
     """Cluster one species' genomes into lineage representatives.
 
     Two things this has to get right, both of which a flat clustering gets
@@ -298,20 +302,29 @@ def strains_for_species(sp, job, recs, entrez, cache_dir, min_identity=0.95,
             continue
         clusters = cluster_sequences(members, min_identity=min_identity)
         lo, mid = pairwise_identity(clusters)
-        kept = select_diverse(clusters, max_representatives)
+        kept, covered = select_diverse(clusters, max_representatives,
+                                       min_members=min_members,
+                                       coverage_identity=coverage_identity)
         label = ("segment %s" % seg) if seg else "genome"
-        log.info("  %s: %d sequences -> %d cluster(s) at %.0f%%, keeping %d "
-                 "(lowest identity between lineages %.0f%%)",
-                 label, len(members), len(clusters), 100 * min_identity, len(kept), 100 * lo)
+        capped = len(kept) >= max_representatives and covered < coverage_identity
+        log.info("  %s: %d sequences -> %d cluster(s) at %.0f%% dedup, keeping %d; "
+                 "every genome within %.0f%% of a representative%s "
+                 "(lineages %.0f%%-%.0f%% apart)",
+                 label, len(members), len(clusters), 100 * min_identity, len(kept),
+                 100 * covered,
+                 " [capped: raise max_representatives]" if capped else "",
+                 100 * lo, 100 * mid)
         for c in kept:
             out.append({
                 "taxid": sp, "code": _code(sp_name, job.get("code") or "NA"),
                 "name": sp_name, "accessions": c["representative"], "role": "strain",
                 "related_to": ",".join(sorted(job["guards"], key=int)),
-                "note": "%s; %d bp; represents %d of %d sequence(s) at %.0f%% identity; "
+                "note": "%s; %d bp; represents %d of %d sequence(s) deduplicated at "
+                        "%.0f%%; covers every genome within %.0f%%%s; "
                         "lineage spread %.0f%%-%.0f%%"
                         % (label, c["length"], len(c["members"]), len(members),
-                           100 * min_identity, 100 * lo, 100 * mid)})
+                           100 * min_identity, 100 * covered,
+                           "; CAPPED" if capped else "", 100 * lo, 100 * mid)})
     return out
 
 
@@ -361,7 +374,8 @@ def list_jobs(ref_tsv, dmp_dir, kinds=("sibling", "strain")):
 
 
 def build_shard(kind, job_id, guards, ref_tsv, entrez, dmp_dir, cache_dir,
-                min_identity=0.95, max_candidates=300, max_representatives=12):
+                min_identity=0.99, max_candidates=300, max_representatives=12,
+                coverage_identity=0.90, min_members=2):
     """One shard of the panel: the siblings of a genus, or a species' strains."""
     parent, rank, name = _taxonomy(dmp_dir)
     guarded = [g for g in (guards or "").split(",") if g]
@@ -373,11 +387,13 @@ def build_shard(kind, job_id, guards, ref_tsv, entrez, dmp_dir, cache_dir,
     job = {"code": "NA", "name": name.get(job_id, job_id), "guards": guarded or [job_id]}
     return strains_for_species(job_id, job, recs, entrez, cache_dir,
                                min_identity=min_identity,
-                               max_representatives=max_representatives)
+                               max_representatives=max_representatives,
+                               coverage_identity=coverage_identity,
+                               min_members=min_members)
 
 
 def build(ref_tsv, out_path, entrez, cache_dir, kinds=("sibling",), taxdump=None,
-          min_identity=0.95, max_candidates=300):
+          min_identity=0.99, max_candidates=300, coverage_identity=0.90):
     dmp = extract_dmp(get_taxdump(taxdump, Path(cache_dir) / "taxonomy"),
                       Path(cache_dir) / "taxonomy" / "dmp")
     rows = []
@@ -385,5 +401,6 @@ def build(ref_tsv, out_path, entrez, cache_dir, kinds=("sibling",), taxdump=None
         rows += build_siblings(ref_tsv, entrez, dmp)
     if "strain" in kinds:
         rows += build_strains(ref_tsv, entrez, dmp, Path(cache_dir) / "strains",
-                              min_identity=min_identity, max_candidates=max_candidates)
+                              min_identity=min_identity, max_candidates=max_candidates,
+                              coverage_identity=coverage_identity)
     return write_panel(rows, out_path)

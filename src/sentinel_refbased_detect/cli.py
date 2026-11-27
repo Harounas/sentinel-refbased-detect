@@ -132,8 +132,16 @@ def build_parser():
     pl.add_argument("--kinds", nargs="+", default=["sibling"], choices=["sibling", "strain"],
                     help="sibling: one RefSeq genome per other species of the genus. "
                          "strain: genomes of the pathogen itself, clustered to representatives")
-    pl.add_argument("--identity", type=float, default=0.95,
-                    help="identity at which strain genomes collapse to one representative")
+    pl.add_argument("--identity", type=float, default=0.99,
+                    help="identity at which two strain genomes count as the same thing "
+                         "and collapse to one representative (redundancy removal only)")
+    pl.add_argument("--coverage-identity", type=float, default=0.90,
+                    help="every genome of a species must end up at least this similar to "
+                         "some representative; selection stops once that holds, so a "
+                         "uniform species keeps one and a diverse one keeps several")
+    pl.add_argument("--min-cluster-members", type=int, default=2,
+                    help="genomes a cluster needs before it can be chosen as a diversity "
+                         "representative; guards against lone misannotated deposits")
     pl.add_argument("--max-candidates", type=int, default=300,
                     help="strain genomes considered per species before clustering")
     pl.add_argument("--cache-dir", default=None, help="where downloads are cached")
@@ -200,13 +208,16 @@ def panel_command(args):
         rows = panel.build_shard(args.kind, args.job_id, args.guards, args.ref_tsv, entrez,
                                  dmp, cache / "strains", min_identity=args.identity,
                                  max_candidates=args.max_candidates,
-                                 max_representatives=args.max_representatives)
+                                 max_representatives=args.max_representatives,
+                                 coverage_identity=args.coverage_identity,
+                                 min_members=args.min_cluster_members)
         panel.write_panel(rows, out)
         return
 
     panel.build(args.ref_tsv, out, entrez, cache, kinds=tuple(args.kinds),
                 taxdump=args.taxdump, min_identity=args.identity,
-                max_candidates=args.max_candidates)
+                max_candidates=args.max_candidates,
+                coverage_identity=args.coverage_identity)
 
 
 def refs_command(args):

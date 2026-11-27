@@ -221,6 +221,31 @@ happen. The risk is the cap afterwards: keeping the first N would drop a whole c
 builder takes the longest genome first, then repeatedly the representative furthest from
 everything already chosen, so a cap trims the crowded middle of a clade instead.
 
+**One identity threshold does not fit all viruses**, so the panel does not use one for
+this. `--identity` (99%) only removes redundancy: two genomes that similar are the same
+thing. How many representatives a species keeps is decided instead by
+`--coverage-identity` (90%), a promise about the result: *every known genome of this
+species is at least this similar to some representative*. Selection stops as soon as that
+holds, so the number of representatives follows the species rather than a fixed rule:
+
+| Species | Genomes | After 99% dedup | Kept | Coverage reached |
+|---|---|---|---|---|
+| SARS-CoV-2 | 120 | 2 clusters | **1** | every genome within 99% |
+| Lassa, segment L | 40 | 31 clusters | **12** (cap) | within 83%, flagged `CAPPED` |
+| Lassa, segment S | 53 | 42 clusters | **12** (cap) | within 82%, flagged `CAPPED` |
+
+A single 95% rule would have been wrong in both directions here: twelve near-identical
+SARS-CoV-2 genomes carrying no extra information, and Lassa silently under-covered with no
+sign that anything was missing. `panel_diversity.tsv` sorts species by the coverage
+actually reached, worst first, and marks the ones that hit the cap — those are the species
+to give a higher `max_representatives`.
+
+**Lone outliers cannot displace a real lineage.** Furthest-first selection reaches for
+whatever is most unlike everything else, which is exactly what a misannotated, chimeric or
+heavily-N'd deposit looks like. A cluster therefore needs `--min-cluster-members`
+(2 by default) before it can be picked for diversity; singletons are still taken when
+nothing corroborated remains.
+
 **The measurement itself has to reach that far.** MinHash uses k=16 rather than Mash's
 usual 21: a 21-mer survives in two sequences 76% identical only 0.4% of the time, so the
 sketch saturates and every divergent pair reads as 0% identity — exactly the species the

@@ -1,6 +1,7 @@
 import random
 
 from sentinel_refbased_detect.cluster import (cluster_sequences, jaccard,
+                                              select_diverse,
                                               mash_identity, sketch)
 
 
@@ -59,3 +60,57 @@ def test_strict_threshold_keeps_strains_apart():
     records = [("a", a), ("a_3pct", _mutate(rng, a, 0.03))]
     assert len(cluster_sequences(records, min_identity=0.99)) == 2
     assert len(cluster_sequences(records, min_identity=0.90)) == 1
+
+
+def _clusters(rng, specs):
+    """specs: list of (name, base_seq, n_members)."""
+    from sentinel_refbased_detect.cluster import sketch as _sk
+    out = []
+    for name, seq, n in specs:
+        out.append({"representative": name, "length": len(seq), "sketch": _sk(seq),
+                    "members": [name] * n})
+    return out
+
+
+def test_selection_stops_once_the_species_is_covered():
+    """A near-clonal species keeps one representative, not the whole cap."""
+    rng = random.Random(21)
+    base = _genome(rng, 12000)
+    clusters = _clusters(rng, [("a", base, 5),
+                               ("b", _mutate(rng, base, 0.002), 4),
+                               ("c", _mutate(rng, base, 0.003), 3)])
+    kept, covered = select_diverse(clusters, 12, coverage_identity=0.90)
+    assert len(kept) == 1 and covered > 0.95
+
+
+def test_diverse_species_keeps_several_and_reports_coverage():
+    rng = random.Random(22)
+    a = _genome(rng, 12000)
+    clusters = _clusters(rng, [("clade_a", a, 5),
+                               ("clade_b", _mutate(rng, a, 0.20), 4),
+                               ("clade_c", _mutate(rng, a, 0.25), 3)])
+    kept, covered = select_diverse(clusters, 12, coverage_identity=0.90)
+    assert len(kept) == 3 and covered > 0.90
+
+
+def test_cap_reports_the_coverage_it_could_not_reach():
+    rng = random.Random(23)
+    a = _genome(rng, 12000)
+    clusters = _clusters(rng, [("c%d" % i, _mutate(rng, a, 0.05 * i), 3) for i in range(5)])
+    kept, covered = select_diverse(clusters, 2, coverage_identity=0.99)
+    assert len(kept) == 2 and covered < 0.99      # honest about falling short
+
+
+def test_singleton_outlier_does_not_displace_a_real_lineage():
+    """Furthest-first reaches for the most unlike thing, which is what a
+    misannotated deposit looks like. The two-member guard holds it back."""
+    rng = random.Random(24)
+    a = _genome(rng, 12000)
+    clusters = _clusters(rng, [("ref", a, 6),
+                               ("real_lineage", _mutate(rng, a, 0.12), 4),
+                               ("junk_singleton", _genome(rng, 12000), 1)])
+    kept, _ = select_diverse(clusters, 2, min_members=2, coverage_identity=0.50)
+    assert [c["representative"] for c in kept] == ["ref", "real_lineage"]
+    # With no corroborated cluster left, a singleton is still allowed.
+    kept3, _ = select_diverse(clusters, 3, min_members=2, coverage_identity=0.50)
+    assert "junk_singleton" in [c["representative"] for c in kept3]

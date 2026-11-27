@@ -109,29 +109,54 @@ def pairwise_identity(clusters, k=K, size=SKETCH_SIZE):
     return ids[0], ids[len(ids) // 2]
 
 
-def select_diverse(clusters, max_n, k=K, size=SKETCH_SIZE):
-    """Pick at most max_n representatives that span the diversity.
+def select_diverse(clusters, max_n, k=K, size=SKETCH_SIZE, min_members=2,
+                   coverage_identity=None):
+    """Representatives that cover the species, and the coverage they achieve.
+
+    Returns (chosen, achieved_identity): every genome of the species is at
+    least `achieved_identity` similar to one of the chosen representatives.
+    That number is the guarantee the panel can actually make, and it is
+    measured rather than assumed.
 
     Taking the first max_n clusters would keep whichever genomes happen to be
     longest and could drop a whole lineage: for Lassa that could mean losing
     clade III entirely. This takes the longest genome first, then repeatedly
-    the representative furthest from everything already chosen, so the kept set
-    covers the spread rather than one corner of it.
+    the representative furthest from everything already chosen, which is the
+    standard greedy k-centre selection and bounds exactly that worst case.
+
+    Two guards on top of it:
+
+    `coverage_identity` stops early once every genome sits within that identity
+    of some representative. A species whose genomes are all alike needs one;
+    SARS-CoV-2 deposits differ by well under a percent, and taking twelve of
+    them would be twelve copies of the same thing.
+
+    `min_members` keeps a cluster of one from being picked while clusters with
+    corroboration are still available. Furthest-first reaches for whatever is
+    most unlike everything else, which is precisely what a misannotated,
+    chimeric or heavily-N'd deposit looks like. Requiring a second genome to
+    agree costs little: a real lineage rarely has exactly one deposit, and
+    singletons are still taken when nothing better remains.
     """
-    if len(clusters) <= max_n:
-        return list(clusters)
-    remaining = list(clusters)
-    chosen = [remaining.pop(0)]            # already sorted longest first
-    while remaining and len(chosen) < max_n:
-        best, best_dist = None, None
-        for c in remaining:
-            d = min(1.0 - mash_identity(jaccard(c["sketch"], x["sketch"], size), k)
-                    for x in chosen)
-            if best_dist is None or d > best_dist:
-                best, best_dist = c, d
+    if not clusters:
+        return [], 1.0
+
+    def dist(a, b):
+        return 1.0 - mash_identity(jaccard(a["sketch"], b["sketch"], size), k)
+
+    pool = list(clusters)
+    chosen = [pool.pop(0)]                  # already sorted longest first
+    while pool and len(chosen) < max_n:
+        scored = [(min(dist(c, x) for x in chosen), c) for c in pool]
+        if coverage_identity is not None and max(d for d, _ in scored) <= 1.0 - coverage_identity:
+            break                            # everything is already covered
+        corroborated = [t for t in scored if len(t[1]["members"]) >= min_members]
+        _, best = max(corroborated or scored, key=lambda t: t[0])
         chosen.append(best)
-        remaining.remove(best)
-    return chosen
+        pool.remove(best)
+
+    achieved = max((min(dist(c, x) for x in chosen) for c in pool), default=0.0)
+    return chosen, 1.0 - achieved
 
 
 def read_fasta(path):
