@@ -10,22 +10,33 @@ defaults as the V15 configuration, and the same output columns and file names.
 Results can be compared directly with the Terra outputs.
 
 ```
-FASTQ ─► Kraken2 ─► candidate selection ─► NCBI references ─► bwa + samtools + ivar
-            │        (priority table +         (cached)          per reference
-            │         alias/legacy taxids)                               │
-            └─► discovery of recurrent non-priority viruses              ▼
-                                         best reference per virus + detection rule
-                                                         │
-                       (optional) DIAMOND blastx of the longest covered block vs nr
-                                                         │
-                              negative-control comparison ─► final call
-                                                         │
-                     priority pathogen that failed the rule on a few reads?
-                                                         ▼
-                        evidence review: identity, mapping quality, genome
-                        distribution, coverage, controls, background,
-                        reference specificity ─► advisory verdict
+PATH 1  is this virus present?
+  FASTQ ─► [host depletion] ─► Kraken2 ─► candidate selection ─► NCBI references
+             │                              (priority table +       (cached)
+             │                               alias/legacy taxids)        │
+             └─► discovery of recurrent non-priority viruses             ▼
+                                               bwa + samtools + ivar, per reference
+                                                                         │
+            best reference: covered bp ▸ separate loci ▸ reads ▸ MAPQ; ties reported
+                                                                         │
+            detection rule: contiguous 1000 bp │ 2 regions │ 2 reads at 2 loci
+                                                                         │
+                            [DIAMOND vs nr] ─► negative controls ─► final call
+                                                                         │
+                     priority pathogen with reads that failed the rule?  ▼
+
+PATH 2  is the evidence any good?
+  identity │ mapping quality │ genome distribution │ coverage │ controls │
+  background │ reference specificity ─► consistent / equivocal / not supported
+                                                                         │
+PATH 3  what is it evidence OF?                                          ▼
+  competitive mapping vs siblings + clustered strains + background
+  every read: species-informative │ genus-informative │ ambiguous
+  ─► species level │ genus level ("Genus sp.") │ possible mixed │ insufficient
 ```
+
+The long form, including which column each step writes, is in
+[`docs/WORKFLOW.md`](docs/WORKFLOW.md).
 
 ## Install
 
