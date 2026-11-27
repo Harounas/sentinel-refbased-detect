@@ -19,6 +19,12 @@ FASTQ ─► Kraken2 ─► candidate selection ─► NCBI references ─► bw
                        (optional) DIAMOND blastx of the longest covered block vs nr
                                                          │
                               negative-control comparison ─► final call
+                                                         │
+                     priority pathogen that failed the rule on a few reads?
+                                                         ▼
+                        evidence review: identity, mapping quality, genome
+                        distribution, coverage, controls, background,
+                        reference specificity ─► advisory verdict
 ```
 
 ## Install
@@ -142,6 +148,52 @@ The final call (`final_call`) then applies these checks in order:
 | 7 | nr agrees at species or genus level | `confirmed` |
 | 8 | Otherwise (for example, no DIAMOND run) | `detected, unconfirmed` |
 
+## Evidence review of priority pathogens that fail the coverage rule
+
+A priority pathogen that Kraken2 names but that falls short of the coverage rule is
+reported `not detected`, and that call stands. It does not say whether the few reads
+that exist look like real pathogen sequence or like an artefact, which is the judgement
+a reviewer would otherwise make by hand.
+
+The review runs automatically after the calls (turn it off with `--no-evidence-review`),
+on alignments that already exist, so it costs almost nothing. Rows are reviewed when the
+virus is **priority**, `detection` is **not detected**, the sample is **not a control**,
+and Kraken2 assigned at least `--evidence-min-kraken-reads` reads. Each row is scored
+against seven criteria:
+
+| Criterion | What is measured | Passes when (default) |
+|---|---|---|
+| Sequence identity | Percent identity of the mapped reads to the reference, from the NM tag | mean ≥ 95% |
+| Mapping quality | Mean MAPQ, and reads carrying an alternative alignment (XA/SA) | MAPQ ≥ 30 and ≤ 20% multi-mapping |
+| Genome distribution | Spread over 500 bp windows, vs piled in one spot | ≥ 3 windows and ≤ 80% of reads in one |
+| Genome coverage | Breadth of the reference covered | ≥ 0.1% |
+| Negative controls | The same virus in this run's controls | sample ≥ 10× the loudest control |
+| Background | A much louder sample on the run that could have bled in | no run-mate ≥ 100× louder |
+| Reference specificity | Whether the reads stay on this virus when the run's other references compete for them, realigned with bwa | ≥ 80% retained |
+
+Specificity treats references of the **same species** as on-target: three adenovirus C
+references trading reads among themselves says nothing about whether the sequence is
+adenovirus. What matters is whether it is distinguishable from other taxa.
+
+A criterion that cannot be judged, such as controls on a run that has none, is recorded
+as `not assessable` and left out of the tally. The overall `evidence_verdict` is:
+
+| Verdict | Meaning |
+|---|---|
+| `consistent with pathogen sequence` | Every assessable criterion passes. Too little sequence to call it present, but worth confirming with a targeted assay such as PCR |
+| `equivocal` | One criterion fails |
+| `not supported` | Two or more fail |
+| `no mapped reads` | Kraken2 assigned reads but none aligned to the reference |
+| `not reviewed` | The row did not qualify, for example it was already detected |
+
+**The verdict is advisory and never changes `detection` or `final_call`.** It is evidence
+for a human decision, not a positive result.
+
+Full per-criterion numbers go to `evidence_review.tsv`; `evidence_verdict` and
+`evidence_reason` are added to the final summary. Every threshold is a flag, for example
+`--evidence-min-identity`, `--evidence-min-bins`, `--evidence-min-retained`. See
+`sentinel-detect run --help`.
+
 ## Outputs (`--outdir`)
 
 | File | Terra output |
@@ -150,6 +202,7 @@ The final call (`final_call`) then applies these checks in order:
 | `detection_summary.tsv` / `detection_summary_annotated.tsv` | `detection_summary_precall_tsv` |
 | `detection_by_region.tsv` | `detection_by_region_tsv` |
 | `control_background.tsv` | `control_background_tsv` |
+| `evidence_review.tsv` | *(new)* per-criterion review of failing priority rows |
 | `kraken2/<sample>.kraken2.report.txt` | `kraken2_reports` |
 | `samples/<sample>/candidates.tsv` | `candidate_tables` |
 | `samples/<sample>/consensus/*.fasta` | `consensus_tars` (unpacked) |

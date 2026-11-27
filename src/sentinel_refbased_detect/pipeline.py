@@ -249,6 +249,21 @@ def run_pipeline(args, params):
         counts = final_calls(summary_before_calls, final, outdir / "control_background.tsv",
                              params, library_sizes=lib)
 
+    # ---- evidence review of failing priority rows ---------------------------
+    # Runs after the calls, on the alignments that already exist. It reads the
+    # final table and writes its verdict back into it, leaving `detection` and
+    # `final_call` untouched.
+    if args.evidence_review and n_rows and not args.no_bam:
+        from . import evidence
+        verdicts = evidence.review(final, outdir / "evidence_review.tsv", outdir, params,
+                                   library_sizes=lib, threads=args.threads)
+        # Always annotate, so the columns exist whether or not anything was
+        # reviewed; rows that were not reviewed say so.
+        evidence.annotate(final, verdicts, outdir / "detection_summary_final.annotated.tsv")
+        shutil.move(str(outdir / "detection_summary_final.annotated.tsv"), str(final))
+    elif args.evidence_review and args.no_bam:
+        log.warning("evidence review skipped: it needs the per-reference BAMs that --no-bam removes")
+
     if not args.keep_intermediate:
         shutil.rmtree(work / "reads", ignore_errors=True)
 

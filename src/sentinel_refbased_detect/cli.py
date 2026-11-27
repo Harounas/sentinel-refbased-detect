@@ -17,6 +17,7 @@ GROUP_TITLES = {
     "detection": "alignment and detection rule",
     "consensus": "ivar consensus",
     "controls": "negative controls and final call",
+    "evidence": "evidence review of priority pathogens that fail the coverage rule",
     "diamond": "DIAMOND (only with --diamond-db)",
 }
 
@@ -92,6 +93,11 @@ def build_parser():
     rt.add_argument("--cache-dir", help="where references/taxdump are cached (default: OUTDIR/cache)")
     rt.add_argument("--resume", default=True, action=argparse.BooleanOptionalAction,
                     help="reuse finished Kraken2 reports and alignments")
+    rt.add_argument("--evidence-review", default=True, action=argparse.BooleanOptionalAction,
+                    help="review priority pathogens that Kraken2 named but that failed the "
+                         "coverage rule, scoring identity, mapping quality, genome "
+                         "distribution, coverage, controls, background and reference "
+                         "specificity. Advisory only: it never changes 'detection'")
     rt.add_argument("--keep-going", action="store_true",
                     help="summarise even if some alignment jobs failed")
     rt.add_argument("--keep-intermediate", action="store_true", help="keep intermediate BAMs/indexes")

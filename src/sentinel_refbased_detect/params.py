@@ -47,6 +47,20 @@ class Params:
     min_unique_reads: int = _p(0, "Optional floor on unique mapped reads for any positive call.", "controls")
     min_nonviral_pident: float = _p(80.0, "Identity at/above which a non-viral nr best hit marks the block as host.", "controls")
 
+    # --- evidence review of failing priority rows ----------------------------
+    evidence_min_kraken_reads: int = _p(1, "Kraken2 clade reads a failing priority row needs before it is reviewed.", "evidence")
+    evidence_min_identity: float = _p(95.0, "Mean percent identity of mapped reads to the reference for the identity criterion to pass.", "evidence")
+    evidence_min_mean_mapq: float = _p(30.0, "Mean MAPQ of the mapped reads for the mapping-quality criterion to pass.", "evidence")
+    evidence_max_multimapping: float = _p(20.0, "Percent of reads carrying an alternative alignment above which mapping quality fails.", "evidence")
+    evidence_bin_bp: int = _p(500, "Window size used to judge how the reads are spread over the genome.", "evidence")
+    evidence_min_bins: int = _p(3, "Windows that must carry reads for the distribution criterion to pass.", "evidence")
+    evidence_max_busiest_bin: float = _p(80.0, "Percent of reads allowed in a single window before distribution fails.", "evidence")
+    evidence_min_breadth: float = _p(0.001, "Fraction of the reference covered for the coverage criterion to pass.", "evidence")
+    evidence_hopping_ratio: float = _p(100.0, "How many times louder another sample must be before cross-talk is a plausible explanation.", "evidence")
+    evidence_min_reads_for_specificity: int = _p(2, "Mapped reads needed before the competing-reference check is run.", "evidence")
+    evidence_min_retained: float = _p(80.0, "Percent of reads that must stay on the target when related references compete.", "evidence")
+    evidence_min_criteria: int = _p(4, "Criteria that must pass for a verdict of 'equivocal' rather than 'not supported'. One failure out of enough passes is equivocal; two or more is not supported.", "evidence")
+
     # --- DIAMOND -------------------------------------------------------------
     diamond_top_pct: float = _p(10.0, "DIAMOND --top; LCA is taken over hits within this percent of the best.", "diamond")
     diamond_mode: str = _p("--mid-sensitive", "DIAMOND sensitivity flag.", "diamond")
