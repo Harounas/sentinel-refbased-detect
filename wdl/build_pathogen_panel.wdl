@@ -100,6 +100,7 @@ workflow build_pathogen_panel {
     output {
         File panel_tsv     = merge_panel.panel_tsv
         File diversity_tsv = merge_panel.diversity_tsv
+        File empty_shards  = merge_panel.empty_shards
         File jobs_tsv      = list_jobs.jobs_tsv
     }
 }
@@ -244,7 +245,7 @@ task merge_panel {
         # the number that says whether one genome can stand for a species or
         # whether it needs several. A species sitting near the bottom of this
         # table is one to look at before trusting a single representative.
-        python3 <<'PYCODE'
+        python3 - ~{sep=' ' shards} <<'PYCODE'
 import csv, re
 
 rows = list(csv.DictReader(open("decoy_panel.tsv"), delimiter="\t"))
@@ -289,12 +290,27 @@ if capped:
 n_sib = sum(1 for r in rows if r["role"] == "sibling")
 print("%d panel rows: %d sibling, %d strain, over %d species"
       % (len(rows), n_sib, len(rows) - n_sib, len({r["taxid"] for r in rows})))
+
+# A shard that failed wrote a header and nothing else, so the scatter stays
+# whole. That is right for keeping the run alive and wrong for believing the
+# result: count them here, where the number is impossible to miss.
+import os, sys
+empty = [p for p in sys.argv[1:] if os.path.getsize(p) < 80]
+if empty:
+    print("WARNING: %d of %d shards produced no rows. Their logs say why; a run "
+          "with many empty shards is not a complete panel."
+          % (len(empty), len(sys.argv) - 1))
+with open("empty_shards.txt", "w") as fh:
+    fh.write("%d of %d shards empty\n" % (len(empty), len(sys.argv) - 1))
+    for p in empty:
+        fh.write(p + "\n")
 PYCODE
     >>>
 
     output {
         File panel_tsv     = "decoy_panel.tsv"
         File diversity_tsv = "panel_diversity.tsv"
+        File empty_shards  = "empty_shards.txt"
     }
 
     runtime {

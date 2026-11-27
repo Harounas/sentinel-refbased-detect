@@ -87,3 +87,45 @@ def test_verify_names_the_pathogens_left_without_decoys(tmp_path):
     assert [m[1] for m in missing] == ["MARV"]
     by_code = {r["code"]: r for r in rows}
     assert by_code["LASV"]["status"] == "ok" and by_code["MARV"]["status"] == "NO DECOYS"
+
+
+def test_efetch_batches_large_accession_lists(monkeypatch):
+    """A few hundred accessions in a URL make NCBI answer 414.
+
+    The real run asked for 1000 West Nile genomes, which is an 11,000-character
+    URL; every such shard failed and, because a failing shard writes an empty
+    file to keep the scatter whole, the workflow reported success with 45 of
+    83 species missing.
+    """
+    from sentinel_refbased_detect.ncbi import Entrez
+
+    seen = []
+
+    class _Resp:
+        def __init__(self, text):
+            self._t = text
+
+        def read(self):
+            return self._t.encode()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    def fake_urlopen(req, timeout=None):
+        # The id list must travel in the body, not the query string.
+        assert req.data, "accessions were sent in the URL, not by POST"
+        body = req.data.decode()
+        ids = [p for p in body.split("&") if p.startswith("id=")][0]
+        n = ids.count("%2C") + 1
+        seen.append(n)
+        return _Resp("".join(">acc%d\nACGT\n" % i for i in range(n)))
+
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+    e = Entrez("test@example.org")
+    e.gap = 0
+    text = e.efetch_fasta(["NC_%06d.1" % i for i in range(650)], chunk=200)
+    assert text.count(">") == 650
+    assert seen == [200, 200, 200, 50]
