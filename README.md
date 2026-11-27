@@ -400,6 +400,45 @@ Full per-criterion numbers go to `evidence_review.tsv`; `evidence_verdict` and
 `--evidence-min-identity`, `--evidence-min-bins`, `--evidence-min-retained`. See
 `sentinel-detect run --help`.
 
+## Genus-level rescue: what the reads say about species
+
+The evidence review says how good the evidence is. This says what it is evidence *of*,
+which is a different question and a more dangerous one. Two species of a genus share most
+of their genome, so a read that fits both lands on whichever reference scores a point
+higher — and summing those points names a species on no evidence at all.
+
+The rescue step refuses that. Every read is sorted by what it can actually support:
+
+| Read class | Meaning |
+|---|---|
+| **species-informative** | One species explains it and no relative explains it as well |
+| **genus-informative** | Several species fit it equally, but all of one genus: real evidence about the genus, none about the species |
+| **ambiguous** | Fits across genera, or the background explains it as well |
+
+Only species-informative reads can name a species, and they must sit at distinct
+positions: twenty reads stacked on one spot are one observation copied twenty times,
+usually a conserved or repetitive stretch, not twenty pieces of evidence.
+
+| Evidence | Outcome |
+|---|---|
+| One species holds discriminating reads the others do not, spread over the genome | **species-level identification** |
+| Reads fit the genus; nothing distinguishes a species | **genus-level identification** (`Mammarenavirus sp.`) |
+| Two species each hold their own discriminating reads at their own positions | **possible mixed infection** |
+| Too few reads, or indistinguishable from the controls | **insufficient evidence** |
+
+The control check comes first and overrides everything: a signal that matches the water
+control is not reportable however cleanly the species resolves, because what resolves is
+the identity of the contaminant.
+
+`genus_rescue_report.tsv` carries all ten sections per candidate: primary detection,
+rescue candidate and panel, competitive mapping statistics, species-specific and ambiguous
+read counts, alignment quality, coverage and distribution, the competing species,
+the negative-control assessment, the final identification, and why it was chosen.
+
+Thresholds are flags: `--rescue-min-species-reads`, `--rescue-min-positions`,
+`--rescue-species-advantage` (how far ahead the leader must be before it is named rather
+than the genus), `--rescue-min-genus-reads`.
+
 ## Outputs (`--outdir`)
 
 | File | Terra output |
@@ -409,6 +448,7 @@ Full per-criterion numbers go to `evidence_review.tsv`; `evidence_verdict` and
 | `detection_by_region.tsv` | `detection_by_region_tsv` |
 | `control_background.tsv` | `control_background_tsv` |
 | `evidence_review.tsv` | *(new)* per-criterion review of failing priority rows |
+| `genus_rescue_report.tsv` | *(new)* species / genus / mixed / insufficient call per rescued candidate |
 | `kraken2/<sample>.kraken2.report.txt` | `kraken2_reports` |
 | `samples/<sample>/candidates.tsv` | `candidate_tables` |
 | `samples/<sample>/consensus/*.fasta` | `consensus_tars` (unpacked) |

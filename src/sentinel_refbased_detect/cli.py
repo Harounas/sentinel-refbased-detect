@@ -20,6 +20,7 @@ GROUP_TITLES = {
     "consensus": "ivar consensus",
     "controls": "negative controls and final call",
     "evidence": "evidence review of priority pathogens that fail the coverage rule",
+    "rescue": "genus-level rescue: what the reads can say about species",
     "diamond": "DIAMOND (only with --diamond-db)",
 }
 

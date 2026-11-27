@@ -46,6 +46,33 @@ def find_report(report_dir, sample_id):
     return cands[0] if cands else None
 
 
+def build_genus_lookup(dmp_dir, panel_rows, background):
+    """Taxon label -> genus name, for telling a sibling species from a stranger.
+
+    Labels reaching the rescue step are scientific names, so the map is built
+    name -> taxid -> genus, from the taxonomy already downloaded.
+    """
+    from .panel import _ancestor_at, _taxonomy
+    try:
+        parent, rank, name = _taxonomy(dmp_dir)
+    except OSError:
+        return lambda label: None
+    by_name = {}
+    for taxid, nm in name.items():
+        by_name.setdefault(nm, taxid)
+    cache = {}
+
+    def genus_of(label):
+        if label in cache:
+            return cache[label]
+        taxid = by_name.get(label)
+        g = _ancestor_at(taxid, parent, rank, "genus") if taxid else None
+        cache[label] = name.get(g) if g else None
+        return cache[label]
+
+    return genus_of
+
+
 def read_counts_file(path):
     out = {}
     with open(path) as fh:
@@ -267,6 +294,18 @@ def run_pipeline(args, params):
                                    library_sizes=lib, threads=args.threads,
                                    panel_by_taxid=panel_rows, entrez=entrez, cache_dir=cache,
                                    background=bg)
+        # Genus-level rescue: the evidence review says how good the evidence
+        # is, this says what it is evidence OF. It runs on the same alignments.
+        if getattr(evidence.review, "last_detail", None):
+            from . import rescue
+            genus_of = build_genus_lookup(dmp, panel_rows, bg)
+            merged = []
+            for d, r in zip(evidence.review.last_detail, evidence.review.last_rows):
+                merged.append(dict(d, _report=r, control_verdict=d["control_verdict"]))
+            log.info("genus-level rescue on %d candidate(s)", len(merged))
+            rescue.run(merged, params, genus_lookup=genus_of,
+                       out_path=outdir / "genus_rescue_report.tsv")
+
         # Always annotate, so the columns exist whether or not anything was
         # reviewed; rows that were not reviewed say so.
         evidence.annotate(final, verdicts, outdir / "detection_summary_final.annotated.tsv")

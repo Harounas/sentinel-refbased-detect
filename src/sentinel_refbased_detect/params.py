@@ -63,6 +63,13 @@ class Params:
     evidence_em_rounds: int = _p(20, "Rounds used to apportion ambiguous reads between taxa.", "evidence")
     evidence_min_criteria: int = _p(4, "Criteria that must pass for a verdict of 'equivocal' rather than 'not supported'. One failure out of enough passes is equivocal; two or more is not supported.", "evidence")
 
+    # --- genus-level rescue --------------------------------------------------
+    rescue_min_reads: int = _p(2, "Mapped reads a rescue candidate needs before any taxonomic call is attempted.", "rescue")
+    rescue_min_species_reads: int = _p(2, "Discriminating reads a species needs before it can be named. These are reads no relative explains as well, not reads that merely scored higher.", "rescue")
+    rescue_min_positions: int = _p(2, "Distinct genomic positions those reads must occupy. Reads stacked on one spot are one observation copied, not independent evidence.", "rescue")
+    rescue_species_advantage: float = _p(3.0, "How many times more discriminating reads the leading species needs than the runner-up before it is named rather than the genus.", "rescue")
+    rescue_min_genus_reads: int = _p(2, "Genus-informative reads needed to report a genus-level identification.", "rescue")
+
     # --- DIAMOND -------------------------------------------------------------
     diamond_top_pct: float = _p(10.0, "DIAMOND --top; LCA is taken over hits within this percent of the best.", "diamond")
     diamond_mode: str = _p("--mid-sensitive", "DIAMOND sensitivity flag.", "diamond")

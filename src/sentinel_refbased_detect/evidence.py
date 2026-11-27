@@ -329,7 +329,7 @@ def reference_specificity(align_dir, sample_dir, target_tag, work_dir, threads=2
     for t in (target_tag,) + tuple(same_taxon_tags):
         taxon_of[t] = TARGET
 
-    per_read, landed, best_ident = {}, {}, {}
+    per_read, landed, best_ident, placed = {}, {}, {}, {}
     background_hits = (align_to_background(fq, background, work_dir, threads=threads)
                        if background else {})
     with open(sam) as fh:
@@ -352,6 +352,7 @@ def reference_specificity(align_dir, sample_dir, target_tag, work_dir, threads=2
             # Best score per reference, then per taxon below.
             if tag not in hits or score > hits[tag]:
                 hits[tag] = score
+            placed.setdefault(f[0], {})[tag] = (score, f[2], int(f[3]))
             # Identity to the closest genome of this taxon. A divergent
             # lineage read against a distant reference looks like a poor match
             # on that reference while being a perfect match to its own clade,
@@ -372,6 +373,7 @@ def reference_specificity(align_dir, sample_dir, target_tag, work_dir, threads=2
         if key not in hits or score > hits[key]:
             hits[key] = score
         taxon_of[key] = label
+        placed.setdefault(name, {})[key] = (score, label, 0)
 
     for name, hits in per_read.items():
         best_tag = max(hits, key=hits.get)
@@ -409,6 +411,15 @@ def reference_specificity(align_dir, sample_dir, target_tag, work_dir, threads=2
                     for k in taxa:
                         new[k] += 1.0 / len(taxa)
             weight = new
+
+    # One entry per read per taxon: the best score it reached there and where.
+    by_taxon_read = {}
+    for name, tags in placed.items():
+        for tag, (score, rname, pos) in tags.items():
+            taxon = taxon_of.get(tag, tag)
+            cur = by_taxon_read.setdefault(name, {}).get(taxon)
+            if cur is None or score > cur[0]:
+                by_taxon_read[name][taxon] = (score, rname, pos)
 
     total_w = sum(weight.values())
     pct_target = round(100.0 * weight.get(TARGET, 0.0) / total_w, 2) if total_w else ""
@@ -452,7 +463,9 @@ def reference_specificity(align_dir, sample_dir, target_tag, work_dir, threads=2
                               if best else "",
             "n_competitors": n_competitors,
             "competitors": comp_desc,
-            "reads_by_reference": by_ref}
+            "reads_by_reference": by_ref,
+            "per_read": by_taxon_read,
+            "target_label": TARGET}
 
 
 def _f(value, default=0.0):
@@ -557,7 +570,7 @@ def review(summary_tsv, out_path, outdir, params, library_sizes=None, threads=2,
     log.info("evidence review: %d priority row(s) failed the coverage rule with "
              ">= %d Kraken2 reads", len(todo), params.evidence_min_kraken_reads)
 
-    out_rows, verdicts = [], {}
+    out_rows, verdicts, detail_rows = [], {}, []
     work_root = Path(outdir) / "work" / "evidence"
     for i, r in enumerate(todo, 1):
         sample_id, taxid, tag = r["sample_id"], r["taxid"], r.get("best_reference", "")
@@ -704,6 +717,10 @@ def review(summary_tsv, out_path, outdir, params, library_sizes=None, threads=2,
             reason = "%d of %d criteria pass; %s" % (passed, assessable, "; ".join(notes))
 
         verdicts[(sample_id, taxid)] = {"evidence_verdict": verdict, "evidence_reason": reason}
+        detail_rows.append({"_spec": spec, "_row": r, "control_verdict": control_v,
+                            "taxid": taxid, "sample_id": sample_id,
+                            "virus_code": r.get("virus_code", ""),
+                            "strain_name": r.get("strain_name", "")})
         out_rows.append({
             "sample_id": sample_id, "taxid": taxid, "virus_code": r.get("virus_code", ""),
             "strain_name": r.get("strain_name", ""), "best_reference": tag,
@@ -757,6 +774,10 @@ def review(summary_tsv, out_path, outdir, params, library_sizes=None, threads=2,
         w.writeheader()
         w.writerows(out_rows)
 
+    # The caller may want the per-read detail; the work tree is cleaned either
+    # way, since the alignments it holds are reproducible from the inputs.
+    review.last_detail = detail_rows
+    review.last_rows = out_rows
     shutil.rmtree(work_root, ignore_errors=True)
     by_verdict = {}
     for r in out_rows:
