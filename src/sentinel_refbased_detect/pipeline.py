@@ -71,6 +71,8 @@ def run_pipeline(args, params):
         tools.remove("kraken2")
     if args.diamond_db:
         tools.append("diamond")
+    if args.host_ref:
+        tools.append("minimap2")
     require_tools(tools)
 
     entrez = Entrez(args.ncbi_email, args.ncbi_api_key)
@@ -88,6 +90,7 @@ def run_pipeline(args, params):
                               "kraken_reports": str(args.kraken_reports or ""),
                               "ref_tsv": str(args.ref_tsv), "fastq_dir": str(args.fastq_dir or ""),
                               "samplesheet": str(args.samplesheet or ""),
+                              "host_ref": str(args.host_ref or ""),
                               "diamond_db": str(args.diamond_db or "")},
                    "samples": {s.sample_id: [str(f) for f in s.files] for s in samples},
                    "params": asdict(params)}, fh, indent=2)
@@ -102,6 +105,19 @@ def run_pipeline(args, params):
     reads = {}
     for s in samples:
         reads[s.sample_id] = merge_lanes(s, work / "reads" / s.sample_id)
+
+    # ---- optional host depletion -------------------------------------------
+    if args.host_ref:
+        from .host import deplete, host_index, write_summary
+        index = host_index(args.host_ref, cache / "host", threads=args.threads)
+        stats = []
+        for s in samples:
+            r1, r2 = reads[s.sample_id]
+            d1, d2, st = deplete(s.sample_id, r1, r2, index, outdir / "host_depleted",
+                                 threads=args.threads, resume=args.resume)
+            reads[s.sample_id] = (d1, d2)
+            stats.append(st)
+        write_summary(stats, outdir / "host_depletion.tsv")
 
     kdir = outdir / "kraken2"
     reports = {}

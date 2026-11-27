@@ -64,7 +64,11 @@ def build_parser():
     opt.add_argument("--recursive", action="store_true", help="search --fastq-dir recursively")
     opt.add_argument("--ncbi-api-key", default=os.environ.get("NCBI_API_KEY"),
                      help="NCBI API key (or $NCBI_API_KEY); raises the rate limit")
-    opt.add_argument("--taxdump", help="NCBI taxdump.tar.gz; default downloads the current one")
+    opt.add_argument("--host-ref",
+                     help="host genome (FASTA[.gz], or a prebuilt minimap2 .mmi) to deplete "
+                          "before Kraken2: read pairs where either mate maps are removed. "
+                          "Leave unset if your FASTQs are already host-depleted")
+    opt.add_argument("--taxdump",help="NCBI taxdump.tar.gz; default downloads the current one")
     opt.add_argument("--name-regex-tsv", help="optional regex<TAB>taxid overrides for report names")
     opt.add_argument("--kraken-reports",
                      help="directory of existing Kraken2 reports (<sample_id>.*report*.txt); "
@@ -103,11 +107,13 @@ def build_parser():
 def check_tools():
     ok = True
     for tool, args in [("kraken2", ["--version"]), ("bwa", []), ("samtools", ["--version"]),
-                       ("ivar", ["version"]), ("diamond", ["version"])]:
+                       ("ivar", ["version"]), ("diamond", ["version"]),
+                       ("minimap2", ["--version"])]:
         path = shutil.which(tool)
         if not path:
-            optional = tool == "diamond"
-            print("%-9s MISSING%s" % (tool, " (optional, needed for --diamond-db)" if optional else ""))
+            need = {"diamond": "--diamond-db", "minimap2": "--host-ref"}.get(tool)
+            optional = need is not None
+            print("%-9s MISSING%s" % (tool, " (optional, needed for %s)" % need if optional else ""))
             ok = ok and optional
             continue
         try:

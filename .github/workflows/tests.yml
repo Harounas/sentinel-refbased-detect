@@ -16,6 +16,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+      - run: sudo apt-get update -q && sudo apt-get install -y -q minimap2 samtools
       - run: pip install -e ".[test]"
       - run: pytest -q
       - run: sentinel-detect --help && sentinel-detect run --help > /dev/null

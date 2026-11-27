@@ -76,6 +76,28 @@ Optional DIAMOND confirmation of detected blocks (the same nr stage as on Terra)
     --accession2taxid /data/prot.accession2taxid.gz   # downloaded from NCBI if omitted
 ```
 
+### Host depletion (`--host-ref`)
+
+If your FASTQs are raw (not yet host-depleted), add a host genome. Reads are aligned
+to it with minimap2 (`-x sr`). A read pair is kept only when **neither** mate maps
+to the host, and everything downstream runs on the kept reads.
+
+```bash
+    --host-ref GRCh38.fa.gz          # or T2T CHM13; FASTA(.gz) or a prebuilt .mmi
+```
+
+* With a FASTA, the minimap2 index is built once and cached in `OUTDIR/cache/host/`
+  (or `--cache-dir`). For a human genome this takes about 10 minutes and about 16 GB of RAM.
+  To build it yourself ahead of time: `minimap2 -x sr -d GRCh38.sr.mmi GRCh38.fa.gz`.
+* The depleted reads are kept in `OUTDIR/host_depleted/`, and `host_depletion.tsv`
+  lists reads in, kept and removed (% host) for each sample.
+* Library sizes for the control comparison are computed **after** depletion, as on
+  Terra (`read_counts_depleted`).
+* Depletion is deliberately conservative. Only reads that are near-identical to the host
+  are removed, so divergent viral reads are never lost to it.
+* Leave `--host-ref` unset if your reads are already cleaned, for example FASTQs made
+  from Terra's `*.cleaned.bam`.
+
 Other useful options:
 
 * `--kraken-reports DIR`: reuse existing Kraken2 reports (`<sample_id>.*report*.txt`, for
@@ -129,12 +151,14 @@ The final call (`final_call`) then applies these checks in order:
 | `discovery/discovered_taxa.tsv` | `discovered_taxa_tsv` |
 | `taxonomy/all/combined_refs.tsv` | `combined_refs_tsv` |
 | `diamond/` | `block_blast_hits`, `block_taxonomy`, `blocks_fasta` |
+| `host_depleted/`, `host_depletion.tsv` | cleaned reads and per-sample host fraction (with `--host-ref`) |
 | `library_sizes.tsv`, `run_params.json`, `pipeline.log` | run provenance |
 
 ## Differences from the Terra run
 
 * **Input is FASTQ instead of cleaned unaligned BAMs.** Give it host-depleted reads (the
-  `cleaned` reads) for comparable results. To turn a Terra BAM into FASTQ:
+  `cleaned` reads), or raw reads with `--host-ref`. Terra's depletion workflow used other
+  tools, so the exact reads removed can differ slightly. To turn a Terra BAM into FASTQ:
   `samtools fastq -1 X_R1.fastq.gz -2 X_R2.fastq.gz -0 /dev/null -s /dev/null -n X.cleaned.bam`.
 * **Library sizes** for the reads-per-million control comparison (`sample_read_counts`
   on Terra) are taken from each Kraken2 report (classified + unclassified fragments,
