@@ -13,7 +13,14 @@ no extra dependency, and the arithmetic is the published one.
 import hashlib
 import math
 
-K = 21
+# k=16, not the 21 Mash uses for bacteria. A k-mer survives a substitution
+# only if none of its k bases is hit, so with k=21 two sequences 76% identical
+# share 0.76**21, under half a percent, of their k-mers: the sketch saturates
+# and every divergent pair reads as 0% identity. Lassa's clades sit near that
+# range, so the one number that should tell us a species needs several
+# representatives would be the one number we could not measure. k=16 keeps
+# resolution down to roughly 70% identity, which covers viral lineages.
+K = 16
 SKETCH_SIZE = 1000
 COMPLEMENT = str.maketrans("ACGTacgt", "TGCAtgca")
 
@@ -83,9 +90,48 @@ def cluster_sequences(records, min_identity=0.95, k=K, size=SKETCH_SIZE):
         else:
             clusters.append({"representative": item["name"], "length": item["length"],
                              "sketch": item["sketch"], "members": [item["name"]]})
-    for c in clusters:
-        c.pop("sketch", None)
     return clusters
+
+
+def pairwise_identity(clusters, k=K, size=SKETCH_SIZE):
+    """Min and median identity between cluster representatives.
+
+    A species whose lineages sit far apart, as Lassa's clades do, shows a low
+    minimum here. That is the number that says whether one genome can stand
+    for the species or whether several must.
+    """
+    sk = [c["sketch"] for c in clusters if c.get("sketch")]
+    if len(sk) < 2:
+        return 1.0, 1.0
+    ids = [mash_identity(jaccard(sk[i], sk[j], size), k)
+           for i in range(len(sk)) for j in range(i + 1, len(sk))]
+    ids.sort()
+    return ids[0], ids[len(ids) // 2]
+
+
+def select_diverse(clusters, max_n, k=K, size=SKETCH_SIZE):
+    """Pick at most max_n representatives that span the diversity.
+
+    Taking the first max_n clusters would keep whichever genomes happen to be
+    longest and could drop a whole lineage: for Lassa that could mean losing
+    clade III entirely. This takes the longest genome first, then repeatedly
+    the representative furthest from everything already chosen, so the kept set
+    covers the spread rather than one corner of it.
+    """
+    if len(clusters) <= max_n:
+        return list(clusters)
+    remaining = list(clusters)
+    chosen = [remaining.pop(0)]            # already sorted longest first
+    while remaining and len(chosen) < max_n:
+        best, best_dist = None, None
+        for c in remaining:
+            d = min(1.0 - mash_identity(jaccard(c["sketch"], x["sketch"], size), k)
+                    for x in chosen)
+            if best_dist is None or d > best_dist:
+                best, best_dist = c, d
+        chosen.append(best)
+        remaining.remove(best)
+    return chosen
 
 
 def read_fasta(path):

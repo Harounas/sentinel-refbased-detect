@@ -1,6 +1,7 @@
 """Command-line interface: `sentinel-detect run ...` and `sentinel-detect check`."""
 
 import argparse
+import csv
 import os
 import shutil
 import subprocess
@@ -116,7 +117,15 @@ def build_parser():
     sub.add_parser("check", help="check that external tools are installed")
 
     pl = sub.add_parser("panel", help="build the decoy panel used by the specificity check")
-    pl.add_argument("action", choices=["build", "show"])
+    pl.add_argument("action", choices=["build", "show", "jobs", "shard", "merge"],
+                    help="build: everything in one process. jobs/shard/merge: the three "
+                         "steps a workflow scatters over (see wdl/build_pathogen_panel.wdl)")
+    pl.add_argument("--kind", choices=["sibling", "strain"], help="shard: which kind")
+    pl.add_argument("--id", dest="job_id", help="shard: the genus or species taxid")
+    pl.add_argument("--guards", default="", help="shard: comma-separated priority taxids")
+    pl.add_argument("--shards", nargs="*", default=[], help="merge: shard TSVs to combine")
+    pl.add_argument("--max-representatives", type=int, default=12,
+                    help="strain representatives kept per species or segment")
     pl.add_argument("-r", "--ref-tsv", default=str(DEFAULT_REF_TSV),
                     help="priority pathogen table the panel guards")
     pl.add_argument("-o", "--out", default=str(DEFAULT_PANEL_TSV), help="panel TSV to write")
@@ -154,14 +163,50 @@ def panel_command(args):
         print("%d panel rows guarding %d priority taxa" % (n, len(rows)))
         return
 
-    if not args.ncbi_email:
-        sys.exit("error: --ncbi-email (or $NCBI_EMAIL) is required by NCBI E-utilities")
     out = Path(args.out)
     cache = Path(args.cache_dir) if args.cache_dir else out.parent / "panel_cache"
-    setup_logging(out.parent, args.verbose)
-    panel.build(args.ref_tsv, out, Entrez(args.ncbi_email, args.ncbi_api_key), cache,
-                kinds=tuple(args.kinds), taxdump=args.taxdump,
-                min_identity=args.identity, max_candidates=args.max_candidates)
+
+    if args.action == "merge":
+        rows = []
+        for path in args.shards:
+            if Path(path).exists():
+                with open(path) as fh:
+                    rows.extend(csv.DictReader(fh, delimiter="\t"))
+        panel.write_panel(rows, out)
+        return
+
+    if not args.ncbi_email:
+        sys.exit("error: --ncbi-email (or $NCBI_EMAIL) is required by NCBI E-utilities")
+    setup_logging(out.parent if args.action != "jobs" else cache, args.verbose)
+    entrez = Entrez(args.ncbi_email, args.ncbi_api_key)
+
+    if args.action == "jobs":
+        from .taxonomy import extract_dmp, get_taxdump
+        dmp = extract_dmp(get_taxdump(args.taxdump, cache / "taxonomy"), cache / "taxonomy" / "dmp")
+        jobs = panel.list_jobs(args.ref_tsv, dmp, kinds=tuple(args.kinds))
+        with open(out, "w", newline="") as fh:
+            w = csv.DictWriter(fh, fieldnames=["kind", "id", "name", "guards"],
+                               delimiter="\t", lineterminator="\n")
+            w.writeheader()
+            w.writerows(jobs)
+        print("%d job(s) written to %s" % (len(jobs), out))
+        return
+
+    if args.action == "shard":
+        from .taxonomy import extract_dmp, get_taxdump
+        if not (args.kind and args.job_id):
+            sys.exit("error: --kind and --id are required for a shard")
+        dmp = extract_dmp(get_taxdump(args.taxdump, cache / "taxonomy"), cache / "taxonomy" / "dmp")
+        rows = panel.build_shard(args.kind, args.job_id, args.guards, args.ref_tsv, entrez,
+                                 dmp, cache / "strains", min_identity=args.identity,
+                                 max_candidates=args.max_candidates,
+                                 max_representatives=args.max_representatives)
+        panel.write_panel(rows, out)
+        return
+
+    panel.build(args.ref_tsv, out, entrez, cache, kinds=tuple(args.kinds),
+                taxdump=args.taxdump, min_identity=args.identity,
+                max_candidates=args.max_candidates)
 
 
 def refs_command(args):

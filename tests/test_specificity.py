@@ -121,3 +121,34 @@ def test_strain_of_same_taxon_counts_as_on_target(world, tmp_path):
                               tag_taxon={"panel_sibling_S1": "Sibling species"})
     assert r["pct_target"] == 100.0
     assert r["n_competitors"] == 1          # only the sibling truly competes
+
+
+def test_divergent_lineage_is_judged_against_its_own_clade(tmp_path):
+    """A Lassa-like case: reads from a clade far from the chosen reference.
+
+    Mapped against a distant lineage they look poor; the panel holds their own
+    clade, so identity is measured there and the read is not failed merely for
+    belonging to an under-represented lineage.
+    """
+    rng = random.Random(11)
+    clade_a = _seq(rng, 12000)                 # the reference the pipeline picked
+    clade_b = _mutate(rng, clade_a, 0.18)      # a lineage ~82% identical to it
+
+    sample = tmp_path / "sample"
+    (sample / "refs").mkdir(parents=True)
+    _fasta(sample / "refs" / "900__LASV__0.fasta", "clade_a", clade_a)
+    panel = tmp_path / "panel"
+    panel.mkdir()
+    _fasta(panel / "panel_strain_B.fasta", "clade_b", clade_b)
+
+    reads = _reads(rng, clade_b, 25, start=0, span=10000)   # truly from clade B
+    _bam(tmp_path, sample / "refs" / "900__LASV__0.fasta", reads,
+         sample / "align" / "900__LASV__0")
+    r = reference_specificity(sample / "align" / "900__LASV__0", sample, "900__LASV__0",
+                              tmp_path / "work",
+                              same_taxon_tags=["panel_strain_B"],
+                              decoys=[panel / "panel_strain_B.fasta"])
+    # Reads are near-identical to their own clade, which the panel supplies...
+    assert r["pct_identity_best"] > 95
+    # ...and the taxon still owns them.
+    assert r["pct_target"] == 100.0

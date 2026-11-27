@@ -203,6 +203,61 @@ sentinel-detect panel build --kinds sibling strain --identity 0.95
 sentinel-detect run --decoy-panel ''          # or switch it off
 ```
 
+#### Divergent species: Lassa, the coronaviruses
+
+Some priority pathogens are far more diverse inside one species than others, and a
+clustering that ignores that would quietly do the wrong thing. Three places where it is
+handled:
+
+**Segments are clustered separately.** Lassa, CCHF and influenza deposit one record per
+segment. An L segment and an S segment share almost nothing, so clustering them together
+calls every genome unique and keeps nothing useful. (NCBI titles these "segment L,
+complete **sequence**", not "complete genome", so the query has to ask for both — with the
+narrower phrase Lassa returns zero records and is skipped entirely.)
+
+**Representatives span the diversity.** Lassa's clades sit around 65% identical to one
+another, so they survive clustering as separate representatives, which is what should
+happen. The risk is the cap afterwards: keeping the first N would drop a whole clade. The
+builder takes the longest genome first, then repeatedly the representative furthest from
+everything already chosen, so a cap trims the crowded middle of a clade instead.
+
+**The measurement itself has to reach that far.** MinHash uses k=16 rather than Mash's
+usual 21: a 21-mer survives in two sequences 76% identical only 0.4% of the time, so the
+sketch saturates and every divergent pair reads as 0% identity — exactly the species the
+number was meant to describe. At k=16 Lassa's clades measure 65%, which is about right.
+
+Coronaviruses need none of this: SARS-CoV-2, MERS and the seasonal ones are separate
+species with their own taxids and their own rows, so each gets its own references and its
+own siblings.
+
+The same divergence affects the **identity criterion**. A Lassa clade II read mapped
+against a Josiah reference is ~80% identical and would fail a 95% floor, though it is a
+perfect match to its own clade. So identity is measured against the **closest genome of
+the taxon** in the panel (`pct_identity_closest_genome`), falling back to the aligned
+reference when the panel has nothing. The detection side already handles this a different
+way: `Refgenomes_V15.tsv` carries five Lassa clade references under one taxid, and the
+pipeline aligns to all of them and keeps the best.
+
+#### Building the panel on Terra
+
+For the full database, `wdl/build_pathogen_panel.wdl` does the same work as a WDL
+workflow: one shard per genus for siblings and one per species for strains, which on the
+V15 table is 133 shards running in parallel instead of hours in series on one machine.
+
+```
+list_jobs ──► scatter over 50 genera + 83 species ──► merge_panel
+  (one          sibling: 1 RefSeq genome per             decoy_panel.tsv
+  taxdump       other species of the genus               panel_diversity.tsv
+  for all)      strain:  cluster, per segment,
+                         keep diverse representatives
+```
+
+Register it in Terra like the detection workflow, give it `ref_genomes_tsv` and
+`ncbi_email`, and point `--decoy-panel` at the `panel_tsv` it writes. `panel_diversity.tsv`
+lists each species' lineage spread, lowest first, so the species that need more
+representatives say so themselves. A shard that fails leaves a gap in the decoys rather
+than taking the whole panel down.
+
 Rebuild it deliberately, read the diff, bump the version. Set `NCBI_EMAIL` to your own
 address first; the bundled panel was generated with a generic contact.
 

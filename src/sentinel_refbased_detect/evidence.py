@@ -39,7 +39,8 @@ REVIEW_COLS = [
     "sample_id", "taxid", "virus_code", "strain_name", "best_reference",
     "kraken_reads", "detection_basis",
     # 1 sequence identity
-    "n_reads_reviewed", "pct_identity_mean", "pct_identity_median", "identity_verdict",
+    "n_reads_reviewed", "pct_identity_mean", "pct_identity_median",
+    "pct_identity_closest_genome", "identity_verdict",
     # 2 mapping quality
     "mean_mapq", "pct_reads_passing_mapq", "pct_reads_multimapping", "mapping_verdict",
     # 3 genome distribution
@@ -266,7 +267,7 @@ def reference_specificity(align_dir, sample_dir, target_tag, work_dir, threads=2
     for t in (target_tag,) + tuple(same_taxon_tags):
         taxon_of[t] = TARGET
 
-    per_read, landed = {}, {}
+    per_read, landed, best_ident = {}, {}, {}
     with open(sam) as fh:
         for line in fh:
             if line.startswith("@"):
@@ -274,11 +275,12 @@ def reference_specificity(align_dir, sample_dir, target_tag, work_dir, threads=2
             f = line.rstrip("\n").split("\t")
             if len(f) < 11 or int(f[1]) & 0x804:     # unmapped or supplementary
                 continue
-            score = None
-            for tag in f[11:]:
-                if tag.startswith("AS:i:"):
-                    score = int(tag[5:])
-                    break
+            score, nm = None, None
+            for t in f[11:]:
+                if t.startswith("AS:i:"):
+                    score = int(t[5:])
+                elif t.startswith("NM:i:"):
+                    nm = int(t[5:])
             if score is None:
                 continue
             tag = f[2].split("|")[0]
@@ -286,6 +288,16 @@ def reference_specificity(align_dir, sample_dir, target_tag, work_dir, threads=2
             # Best score per reference, then per taxon below.
             if tag not in hits or score > hits[tag]:
                 hits[tag] = score
+            # Identity to the closest genome of this taxon. A divergent
+            # lineage read against a distant reference looks like a poor match
+            # on that reference while being a perfect match to its own clade,
+            # so the question worth asking is how well it fits the nearest
+            # genome the taxon has, not the one the pipeline happened to pick.
+            if nm is not None and taxon_of.get(tag, tag) == TARGET:
+                alen = aligned_length(f[5])
+                if alen:
+                    ident = 100.0 * (alen - nm) / alen
+                    best_ident[f[0]] = max(best_ident.get(f[0], 0.0), ident)
 
     for name, hits in per_read.items():
         best_tag = max(hits, key=hits.get)
@@ -345,6 +357,9 @@ def reference_specificity(align_dir, sample_dir, target_tag, work_dir, threads=2
         for t, n in sorted(landed.items(),
                            key=lambda kv: (kv[0] != target_tag, -kv[1], kv[0])))
     return {"pct_target": pct_target,
+            "pct_identity_best": (round(sum(best_ident.values()) / len(best_ident), 2)
+                                  if best_ident else ""),
+            "n_closest_genome": len(best_ident),
             "n_unique_target": unique.get(TARGET, 0),
             "n_unique_other": sum(v for k, v in unique.items() if k != TARGET),
             "n_ambiguous": len(ambiguous),
@@ -502,11 +517,19 @@ def review(summary_tsv, out_path, outdir, params, library_sizes=None, threads=2,
             notes.append(note)
             return "fail"
 
-        ident = m["pct_identity_mean"] if m else ""
+        # Identity to the reference that was aligned, and to the closest genome
+        # of the same taxon in the panel. For a divergent species the two differ
+        # sharply: a Lassa clade II read is ~80% identical to a Josiah reference
+        # and ~99% to its own clade. Judge on the closest genome, so a true read
+        # of an under-represented lineage is not failed for being divergent;
+        # fall back to the aligned reference when no panel genome exists.
+        ident_ref = m["pct_identity_mean"] if m else ""
+        ident_best = (spec or {}).get("pct_identity_best", "")
+        ident = ident_best if ident_best != "" else ident_ref
         identity_v = score(None if ident == "" else ident >= params.evidence_min_identity,
                            "identity",
-                           "reads sit at %s%% identity, under %g%%"
-                           % (ident, params.evidence_min_identity))
+                           "reads sit at %s%% identity to the closest genome of this taxon, "
+                           "under %g%%" % (ident, params.evidence_min_identity))
 
         # n_mapped (no MAPQ floor) vs the unique reads that survived it.
         n_mapped = _f(r.get("total_unique_reads_mapped")) + _f(r.get("n_duplicate_reads"))
@@ -600,6 +623,7 @@ def review(summary_tsv, out_path, outdir, params, library_sizes=None, threads=2,
             "n_reads_reviewed": n_reads,
             "pct_identity_mean": ident,
             "pct_identity_median": m["pct_identity_median"] if m else "",
+            "pct_identity_closest_genome": ident_best,
             "identity_verdict": identity_v,
             "mean_mapq": m["mean_mapq"] if m else "",
             "pct_reads_passing_mapq": pct_pass_mapq,

@@ -21,7 +21,7 @@ import csv
 import re
 from pathlib import Path
 
-from .cluster import cluster_sequences
+from .cluster import cluster_sequences, pairwise_identity, select_diverse
 from .taxonomy import extract_dmp, get_taxdump
 from .utils import log
 
@@ -116,6 +116,52 @@ def _code(name, fallback):
     return tag or fallback
 
 
+def _priority_rows(ref_tsv):
+    """(taxid, code) of every non-discovered row of the priority table."""
+    out = []
+    with open(ref_tsv) as fh:
+        for row in csv.reader(fh, delimiter="\t"):
+            if row and row[0].strip().isdigit():
+                if not (len(row) > 4 and row[4].strip() == "discovered"):
+                    out.append((row[0].strip(), (row[1] or "").strip()))
+    return out
+
+
+def _priority_taxids(ref_tsv):
+    return sorted({t for t, _ in _priority_rows(ref_tsv)}, key=int)
+
+
+def siblings_for_genus(group, guarded, entrez, parent, rank, name, max_per_genus=200):
+    """One RefSeq genome per species of this genus that is not a guarded taxon."""
+    gname = name.get(group, group)
+    term = "txid%s[Organism:exp] AND srcdb_refseq[PROP] AND 500:3000000[SLEN]" % group
+    try:
+        recs = _records(entrez, term, max_per_genus)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("  lookup failed for %s: %s", gname, exc)
+        return []
+
+    by_species = {}
+    for r in recs:
+        if not r["taxid"]:
+            continue
+        if set(_lineage(r["taxid"], parent)) & set(guarded):
+            continue
+        sp = _ancestor_at(r["taxid"], parent, rank, "species") or r["taxid"]
+        by_species.setdefault(sp, []).append(r)
+
+    rows = []
+    for sp, sp_recs in sorted(by_species.items(), key=lambda kv: int(kv[0])):
+        accs, how = _pick_genome(sp_recs)
+        sp_name = name.get(sp, sp_recs[0]["title"][:60])
+        rows.append({"taxid": sp, "code": _code(sp_name, "taxid" + sp), "name": sp_name,
+                     "accessions": ":".join(accs), "role": "sibling",
+                     "related_to": ",".join(sorted(guarded, key=int)),
+                     "note": "%s of %s; %s" % (rank.get(sp, "species"), gname, how)})
+    log.info("  %d sibling species", len(by_species))
+    return rows
+
+
 def build_siblings(ref_tsv, entrez, dmp_dir, max_per_genus=200):
     """One RefSeq genome per other species of each priority taxon's genus."""
     parent, rank, name = _taxonomy(dmp_dir)
@@ -144,36 +190,10 @@ def build_siblings(ref_tsv, entrez, dmp_dir, max_per_genus=200):
 
     rows = []
     for n, (group, guarded) in enumerate(sorted(genera.items(), key=lambda kv: int(kv[0])), 1):
-        gname = name.get(group, group)
         log.info("[%d/%d] %s (%s), guarding %d priority taxa",
-                 n, len(genera), gname, group, len(guarded))
-        term = ("txid%s[Organism:exp] AND srcdb_refseq[PROP] AND 500:3000000[SLEN]" % group)
-        try:
-            recs = _records(entrez, term, max_per_genus)
-        except Exception as exc:  # noqa: BLE001
-            log.warning("  lookup failed: %s", exc)
-            continue
-
-        # A record belongs to a priority taxon when that taxon is on its
-        # lineage; everything else in the genus is a sibling worth offering.
-        by_species = {}
-        for r in recs:
-            if not r["taxid"]:
-                continue
-            lin = set(_lineage(r["taxid"], parent))
-            if lin & set(guarded):
-                continue
-            sp = _ancestor_at(r["taxid"], parent, rank, "species") or r["taxid"]
-            by_species.setdefault(sp, []).append(r)
-
-        for sp, sp_recs in sorted(by_species.items(), key=lambda kv: int(kv[0])):
-            accs, how = _pick_genome(sp_recs)
-            sp_name = name.get(sp, sp_recs[0]["title"][:60])
-            rows.append({"taxid": sp, "code": _code(sp_name, "taxid" + sp), "name": sp_name,
-                         "accessions": ":".join(accs), "role": "sibling",
-                         "related_to": ",".join(sorted(guarded, key=int)),
-                         "note": "%s of %s; %s" % (rank.get(sp, "species"), gname, how)})
-        log.info("  %d sibling species", len(by_species))
+                 n, len(genera), name.get(group, group), group, len(guarded))
+        rows += siblings_for_genus(group, guarded, entrez, parent, rank, name,
+                                   max_per_genus=max_per_genus)
     return rows
 
 
@@ -195,56 +215,104 @@ def build_strains(ref_tsv, entrez, dmp_dir, cache_dir, min_identity=0.95,
     jobs = {}
     for taxid, code in priority:
         sp = _ancestor_at(taxid, parent, rank, "species") or taxid
-        jobs.setdefault(sp, {"code": code or "NA", "guards": []})["guards"].append(taxid)
+        jobs.setdefault(sp, {"code": code or "NA", "name": name.get(sp, sp),
+                             "guards": []})["guards"].append(taxid)
 
     rows = []
     for n, (sp, job) in enumerate(sorted(jobs.items(), key=lambda kv: int(kv[0])), 1):
         sp_name = name.get(sp, sp)
         log.info("[%d/%d] %s (%s)", n, len(jobs), sp_name, sp)
-        term = ("txid%s[Organism:exp] AND complete genome[Title] "
-                "AND 500:3000000[SLEN]" % sp)
+        # "complete sequence" as well as "complete genome": a segmented virus
+        # deposits one record per segment and titles it "segment L, complete
+        # sequence", so the narrower phrase returns nothing at all for Lassa,
+        # CCHF and influenza -- the divergent, segmented pathogens that most
+        # need strain representatives.
+        term = ("txid%s[Organism:exp] AND (complete genome[Title] OR "
+                "complete sequence[Title]) AND 500:3000000[SLEN]" % sp)
         try:
             recs = _records(entrez, term, max_candidates)
         except Exception as exc:  # noqa: BLE001
             log.warning("  lookup failed: %s", exc)
             continue
-        # Segmented genomes are not clustered: a segment is not a genome, and
-        # comparing one segment against another says nothing useful.
-        if any(SEGMENT.search(r["title"]) for r in recs):
-            log.info("  %d records look segmented; keeping the reference genome only", len(recs))
-            continue
-        recs = [r for r in recs if r["slen"] > 0][:max_candidates]
-        if len(recs) < 2:
-            log.info("  %d genome(s); nothing to cluster", len(recs))
-            continue
-
-        fasta = cache_dir / ("%s.fasta" % sp)
-        if not fasta.exists():
-            text = entrez.efetch_fasta([r["acc"] for r in recs])
-            fasta.write_text(text if text.endswith("\n") else text + "\n")
-        seqs = {}
-        label, buf = None, []
-        for line in fasta.read_text().splitlines():
-            if line.startswith(">"):
-                if label:
-                    seqs[label] = "".join(buf)
-                label, buf = line[1:].split()[0], []
-            elif line:
-                buf.append(line)
-        if label:
-            seqs[label] = "".join(buf)
-
-        clusters = cluster_sequences(seqs.items(), min_identity=min_identity)
-        log.info("  %d genomes -> %d cluster(s) at %.0f%% identity",
-                 len(seqs), len(clusters), 100 * min_identity)
-        for c in clusters[:max_representatives]:
-            rows.append({
-                "taxid": sp, "code": _code(sp_name, job["code"]), "name": sp_name,
-                "accessions": c["representative"], "role": "strain",
-                "related_to": ",".join(sorted(job["guards"], key=int)),
-                "note": "%d bp; represents %d genome(s) at %.0f%% identity"
-                        % (c["length"], len(c["members"]), 100 * min_identity)})
+        rows += strains_for_species(sp, job, recs, entrez, cache_dir,
+                                    min_identity=min_identity,
+                                    max_representatives=max_representatives)
     return rows
+
+
+def strains_for_species(sp, job, recs, entrez, cache_dir, min_identity=0.95,
+                        max_representatives=12):
+    """Cluster one species' genomes into lineage representatives.
+
+    Two things this has to get right, both of which a flat clustering gets
+    wrong:
+
+    Segments. Lassa, CCHF and influenza deposit one record per segment. An L
+    segment and an S segment of the same virus share almost nothing, so
+    clustering them together would call every genome unique and keep nothing
+    useful. Each segment is therefore clustered on its own.
+
+    Divergence. Lassa's clades sit far enough apart that they survive
+    clustering as separate representatives, which is what should happen; the
+    risk is the cap afterwards. Representatives are chosen to span the
+    diversity, so a cap trims the crowded middle rather than deleting a clade.
+    """
+    sp_name = job.get("name") or sp
+    cache_dir = Path(cache_dir)
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    recs = [r for r in recs if r["slen"] > 0]
+    if len(recs) < 2:
+        log.info("  %d genome(s); nothing to cluster", len(recs))
+        return []
+
+    by_acc = {r["acc"]: r for r in recs}
+    fasta = cache_dir / ("%s.fasta" % sp)
+    if not fasta.exists():
+        text = entrez.efetch_fasta([r["acc"] for r in recs])
+        tmp = fasta.with_name(fasta.name + ".part")
+        tmp.write_text(text if text.endswith("\n") else text + "\n")
+        tmp.rename(fasta)
+    seqs = {}
+    label, buf = None, []
+    for line in fasta.read_text().splitlines():
+        if line.startswith(">"):
+            if label:
+                seqs[label] = "".join(buf)
+            label, buf = line[1:].split()[0], []
+        elif line:
+            buf.append(line)
+    if label:
+        seqs[label] = "".join(buf)
+
+    # Group by segment where the records name one; everything else is a whole
+    # genome and is clustered as a single group.
+    groups = {}
+    for acc, seq in seqs.items():
+        title = by_acc.get(acc, {}).get("title", "")
+        m = SEGMENT.search(title)
+        groups.setdefault(m.group(1).upper() if m else "", []).append((acc, seq))
+
+    out = []
+    for seg, members in sorted(groups.items()):
+        if len(members) < 2:
+            continue
+        clusters = cluster_sequences(members, min_identity=min_identity)
+        lo, mid = pairwise_identity(clusters)
+        kept = select_diverse(clusters, max_representatives)
+        label = ("segment %s" % seg) if seg else "genome"
+        log.info("  %s: %d sequences -> %d cluster(s) at %.0f%%, keeping %d "
+                 "(lowest identity between lineages %.0f%%)",
+                 label, len(members), len(clusters), 100 * min_identity, len(kept), 100 * lo)
+        for c in kept:
+            out.append({
+                "taxid": sp, "code": _code(sp_name, job.get("code") or "NA"),
+                "name": sp_name, "accessions": c["representative"], "role": "strain",
+                "related_to": ",".join(sorted(job["guards"], key=int)),
+                "note": "%s; %d bp; represents %d of %d sequence(s) at %.0f%% identity; "
+                        "lineage spread %.0f%%-%.0f%%"
+                        % (label, c["length"], len(c["members"]), len(members),
+                           100 * min_identity, 100 * lo, 100 * mid)})
+    return out
 
 
 def write_panel(rows, out_path):
@@ -260,6 +328,52 @@ def write_panel(rows, out_path):
         w.writerows(unique)
     log.info("wrote %d panel rows to %s", len(unique), out_path)
     return out_path
+
+
+def list_jobs(ref_tsv, dmp_dir, kinds=("sibling", "strain")):
+    """The shards a workflow scatters over: one genus, or one species, each.
+
+    Grouping first matters for cost as well as correctness. 288 priority taxa
+    collapse to about 50 genera, because many of them are siblings already, and
+    a genus is one query however many of its species are on the list.
+    """
+    parent, rank, name = _taxonomy(dmp_dir)
+    jobs = []
+    if "sibling" in kinds:
+        genera = {}
+        for taxid in _priority_taxids(ref_tsv):
+            group = (_ancestor_at(taxid, parent, rank, "genus")
+                     or _ancestor_at(taxid, parent, rank, "family"))
+            if group:
+                genera.setdefault(group, []).append(taxid)
+        for group, guarded in sorted(genera.items(), key=lambda kv: int(kv[0])):
+            jobs.append({"kind": "sibling", "id": group, "name": name.get(group, group),
+                         "guards": ",".join(sorted(set(guarded), key=int))})
+    if "strain" in kinds:
+        species = {}
+        for taxid, code in _priority_rows(ref_tsv):
+            sp = _ancestor_at(taxid, parent, rank, "species") or taxid
+            species.setdefault(sp, {"code": code or "NA", "guards": []})["guards"].append(taxid)
+        for sp, job in sorted(species.items(), key=lambda kv: int(kv[0])):
+            jobs.append({"kind": "strain", "id": sp, "name": name.get(sp, sp),
+                         "guards": ",".join(sorted(set(job["guards"]), key=int))})
+    return jobs
+
+
+def build_shard(kind, job_id, guards, ref_tsv, entrez, dmp_dir, cache_dir,
+                min_identity=0.95, max_candidates=300, max_representatives=12):
+    """One shard of the panel: the siblings of a genus, or a species' strains."""
+    parent, rank, name = _taxonomy(dmp_dir)
+    guarded = [g for g in (guards or "").split(",") if g]
+    if kind == "sibling":
+        return siblings_for_genus(job_id, guarded, entrez, parent, rank, name)
+    term = ("txid%s[Organism:exp] AND (complete genome[Title] OR "
+            "complete sequence[Title]) AND 500:3000000[SLEN]" % job_id)
+    recs = _records(entrez, term, max_candidates)
+    job = {"code": "NA", "name": name.get(job_id, job_id), "guards": guarded or [job_id]}
+    return strains_for_species(job_id, job, recs, entrez, cache_dir,
+                               min_identity=min_identity,
+                               max_representatives=max_representatives)
 
 
 def build(ref_tsv, out_path, entrez, cache_dir, kinds=("sibling",), taxdump=None,
